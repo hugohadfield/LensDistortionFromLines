@@ -240,54 +240,35 @@ void read_directory(std::vector<std::string>& out_filepaths, const std::string& 
   cout << "found " << out_filepaths.size() << " files." << endl;
 }
 
+
 //------------------------------------------------------------------------------
 
-int main(int argc, char *argv[])
-{
-  if(argc != 10)
-  {
-    print_function_syntax_lens_distortion_correction_2p_iterative_optimization();
-    exit(EXIT_FAILURE);
-  }
-  
-  if(check_params_lens_distortion_correction_2p_iterative_optimization(argv) != 0)
-  {
-    manage_failure(argv,0);
-    exit(EXIT_SUCCESS);
-  }
-  
-  std::string input_folder(argv[1]);
-  std::vector<std::string> input_files;
 
-  read_directory(input_files, input_folder);
-  
-  if(input_files.empty())
-    throw std::logic_error("No input image");
 
-  for(const std::string& filepath: input_files)
-    std::cout << "file: " << filepath << std::endl;
-  
-  //Load first image to read image size
-  ami::image<unsigned char> inputReadImageSize(input_files[0]);
-  int width = inputReadImageSize.width();
-  int height = inputReadImageSize.height();
-  inputReadImageSize.clear();
 
+/// \brief This runs the algorithm, the main function will be a wrapper for this one
+int runAlgorithm(
+  const std::vector<std::string>& input_files,
+  const std::string& output_folder,
+  const int width,
+  const int height,
+  const float canny_high_threshold,
+  const float initial_distortion_parameter,
+  const float final_distortion_parameter,
+  const float distance_point_line_max_hough,
+  const float angle_point_orientation_max_difference,
+  const std::string& tmodel,
+  const std::string& s_opt_c
+){
+  //We define the parameters for the algorithm
   int size_ = width*height; // image size
-  float canny_high_threshold = atof(argv[3]); // high threshold for canny detector
-  const float initial_distortion_parameter = atof(argv[4]); //left side of allowed distortion parameter interval
-  const float final_distortion_parameter = atof(argv[5]); //Hough parameter
-  const float distance_point_line_max_hough = atof(argv[6]); //Hough parameter
-  //maximum difference allowed (in degrees) between edge and line orientation
-  const float angle_point_orientation_max_difference = atof(argv[7]);
-  const string tmodel(argv[8]);
-  const string s_opt_c(argv[9]);
   const bool opt_center = (s_opt_c == string("True"));
 
   const int max_lines = 100; //maximum number of lines estimated
   const float angle_resolution = 0.1; // angle discretization step (in degrees)
   const float distance_resolution = 1.; // line distance discretization step
   const float distortion_parameter_resolution = 0.1; //distortion parameter discretization step
+
   lens_distortion_model ini_ldm;
   if(tmodel == string("pol"))
     ini_ldm.set_type(POLYNOMIAL);
@@ -344,7 +325,7 @@ int main(int argc, char *argv[])
         edges3c[index[i]+2*size_] = 0;
       }
       //Writing Canny detector output after the cleaning process
-      edges3c.write( std::string(argv[2]) + input_basename + "_canny.png" );
+      edges3c.write( output_folder + input_basename + "_canny.png" );
       cout << "...edges detected" << endl;
     }
     
@@ -388,15 +369,14 @@ int main(int argc, char *argv[])
     //We check if the iterative optimization process finishes properly
     if(i_primitives.get_lines().size() == 0)
     {
-      manage_failure(argv,0);
-      continue;
+      return false;
     }
 
     //Drawing the detected lines on the original image to illustrate the results
     {
       ami::image<unsigned char> gray3c(width, height, 3, 255);
       drawHoughLines(i_primitives, gray3c);
-      gray3c.write(std::string(argv[2]) + input_basename + "_hough.png");
+      gray3c.write(output_folder + input_basename + "_hough.png");
     }
 
     //ALGORITHM STAGE 4 : Correcting the image distortion using the estimated model
@@ -414,7 +394,7 @@ int main(int argc, char *argv[])
         );
         
         //Writing the distortion corrected image
-        undistorted.write(std::string(argv[2]) + input_basename + "_undistort.png");
+        undistorted.write(output_folder + input_basename + "_undistort.png");
       }
       else
       {
@@ -443,24 +423,24 @@ int main(int argc, char *argv[])
         
         delete []a;
         //Writing the distortion corrected image
-        undistorted.write(std::string(argv[2]) + input_basename + "_undistort.png");
+        undistorted.write(output_folder + input_basename + "_undistort.png");
       }
       cout << "...distortion corrected." << endl;
     }
 
     // WRITING OUTPUT TEXT DOCUMENTS
         // writing in a file the lens distortion model and the lines and associated points
-    i_primitives.write(std::string(argv[2]) + input_basename + ".calib");
+    i_primitives.write(output_folder + input_basename + ".calib");
     // writing function parameters and basic outputs :
     ofstream fs("output.txt"); // Output file
     fs << "Selected parameters:" << endl;
-    fs << "\t High Canny's threshold: " << argv[3] << endl;
-    fs << "\t Initial normalized distortion parameter: " << argv[4] << endl;
-    fs << "\t Final normalized distortion parameter: " << argv[5] << endl;
-    fs << "\t Maximum distance between points and line: " << argv[6] << endl;
-    fs << "\t Maximum difference between edge point and line orientations: " << argv[7]  << endl;
-    fs << "\t Model applied: " << argv[8] << endl;
-    fs << "\t Center optimization: " << argv[9] << endl;
+    fs << "\t High Canny's threshold: " << canny_high_threshold << endl;
+    fs << "\t Initial normalized distortion parameter: " << initial_distortion_parameter << endl;
+    fs << "\t Final normalized distortion parameter: " << final_distortion_parameter << endl;
+    fs << "\t Maximum distance between points and line: " << distance_point_line_max_hough << endl;
+    fs << "\t Maximum difference between edge point and line orientations: " << angle_point_orientation_max_difference  << endl;
+    fs << "\t Model applied: " << tmodel << endl;
+    fs << "\t Center optimization: " << s_opt_c << endl;
     fs << "-------------------------" << endl;
     fs << "Results: " << endl;
     fs << "\t Number of detected lines: " << i_primitives.get_lines().size() << endl;
@@ -477,8 +457,86 @@ int main(int argc, char *argv[])
     compute_ps(p1, p2, i_primitives.get_distortion(), width, height, is_division);
     
     fs << "\t Estimated normalized distortion parameters: p1 = " << p1 << " p2 = " << p2 << endl;
-    fs << "\t Average squared error distance in pixels between line and associated points = " << final_error << endl;
+    // fs << "\t Average squared error distance in pixels between line and associated points = " << final_error << endl;
+    fs << "\t Estimated unnormalized distortion parameters: k1 = " << i_primitives.get_distortion().get_d()[1] << " k2 = " << i_primitives.get_distortion().get_d()[2] << endl;
     fs.close();
+  }
+
+  return true;
+}
+
+
+
+
+
+
+
+int main(int argc, char *argv[])
+{
+
+  /// CLI input processing
+
+
+  if(argc != 10)  // 9 arguments
+  {
+    print_function_syntax_lens_distortion_correction_2p_iterative_optimization();
+    exit(EXIT_FAILURE);
+  }
+  
+  // Check input parameters
+  if(check_params_lens_distortion_correction_2p_iterative_optimization(argv) != 0)
+  {
+    manage_failure(argv,0);
+    exit(EXIT_SUCCESS);
+  }
+  
+  std::string input_folder(argv[1]);
+  std::vector<std::string> input_files;
+
+  std::string output_folder(argv[2]);
+
+  read_directory(input_files, input_folder);
+  
+  if(input_files.empty())
+    throw std::logic_error("No input image");
+
+  for(const std::string& filepath: input_files)
+    std::cout << "file: " << filepath << std::endl;
+  
+  //Load first image to read image size
+  ami::image<unsigned char> inputReadImageSize(input_files[0]);
+  int width = inputReadImageSize.width();
+  int height = inputReadImageSize.height();
+  inputReadImageSize.clear();
+
+  int size_ = width*height; // image size
+  float canny_high_threshold = atof(argv[3]); // high threshold for canny detector
+  const float initial_distortion_parameter = atof(argv[4]); //left side of allowed distortion parameter interval
+  const float final_distortion_parameter = atof(argv[5]); //Hough parameter
+  const float distance_point_line_max_hough = atof(argv[6]); //Hough parameter
+  //maximum difference allowed (in degrees) between edge and line orientation
+  const float angle_point_orientation_max_difference = atof(argv[7]);
+  const string tmodel(argv[8]);
+  const string s_opt_c(argv[9]);
+  const bool opt_center = (s_opt_c == string("True"));
+
+
+  // Run the algorithm
+  bool success = runAlgorithm(
+    input_files,
+    output_folder,
+    width,
+    height,
+    canny_high_threshold,
+    initial_distortion_parameter,
+    final_distortion_parameter,
+    distance_point_line_max_hough,
+    angle_point_orientation_max_difference,
+    tmodel,
+    s_opt_c
+  );
+  if (!success){
+    manage_failure(argv, 0);
   }
   
   exit(EXIT_SUCCESS);
