@@ -50,6 +50,10 @@ def ipol_division_model(r: float, k1: float, k2: float):
 
 
 def match_opencv_to_r_model(r_model_func: Callable, max_r: float):
+    """
+    Match an opencv fisheye radial distortion model to a given radial distortion 
+    model implemented as a function of the radial distance in pixels from the distortion centre.
+    """
     # Create a range of radial distances to test the model
     r_array = np.linspace(1.0, max_r, 4000)
 
@@ -67,6 +71,8 @@ def match_opencv_to_r_model(r_model_func: Callable, max_r: float):
     
     # Initial guess for the parameters
     k0 = [0.0, 0.0, 0.0, 0.0]
+
+    # Run the optimization
     res = minimize(
         cost_function, 
         k0, 
