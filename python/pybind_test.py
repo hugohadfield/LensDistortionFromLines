@@ -23,7 +23,7 @@ if __name__ == '__main__':
     # Make the output directory if it does not exist
     output_dir.mkdir(exist_ok=True)
 
-    undistorted_numpy_array, res_dict = lens_distortion_module.process_image(test_image, output_dir, width, height)
+    undistorted_numpy_array, res_dict = lens_distortion_module.process_image(test_image, width, height, output_dir)
     print(res_dict)
     plt.figure()
     plt.imshow(undistorted_numpy_array)

@@ -97,7 +97,7 @@ PYBIND11_MODULE(lens_distortion_pybind, m) {
         py::arg("tmodel"),
         py::arg("s_opt_c"),
         py::arg("write_intermediates") = false,
-        py::arg("write_output") = true,
+        py::arg("write_output") = false,
         py::arg("max_lines") = lens_distortion::default_max_lines,
         py::arg("angle_resolution") = lens_distortion::default_angle_resolution,
         py::arg("distance_resolution") = lens_distortion::default_distance_resolution,

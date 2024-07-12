@@ -29,7 +29,7 @@ def unpack_image_from_list_numpy(image_bytes: np.ndarray, width_: int, height_: 
     return output_image
 
 
-def process_image(test_image: str, output_dir: str, width: int, height: int):
+def process_image(test_image: str, width: int, height: int, output_dir: str = ""):
     output_folder = str(output_dir) + '/'
     canny_high_threshold = 0.8
     initial_distortion_parameter = 0.0

@@ -1,10 +1,17 @@
 
-from typing import Callable, Optional
+from typing import Callable
 
 import numpy as np
 from scipy.optimize import minimize
 import numba
 from scipy.interpolate import PchipInterpolator
+import matplotlib.pyplot as plt
+import cv2
+
+from lens_distortion_module import process_image
+
+
+DEFAULT_OPENCV_FOCAL_LENGTH = 1000.0
 
 
 @numba.jit(nopython=True)
@@ -14,7 +21,7 @@ def opencv_Fr(
     This is effectively the opencv fisheye model, which is a polynomial approximation of the fisheye distortion.
     The difference here is that the focal length is not included in the model, so the function is only dependent on the radial distance r.
     """
-    scale: float = 500.0
+    scale: float = DEFAULT_OPENCV_FOCAL_LENGTH
     r_scaled = r / scale
     theta = np.arctan(r_scaled)
     theta2 = theta * theta
@@ -35,9 +42,9 @@ def invert_model(model_func: Callable, max_r: float = 600.0) -> Callable:
     y = np.array([model_func(r) for r in r_array])
     output_rs = y*r_array
     # Now calculate the original r values as a fraction of the output r values
-    inverte_scaling = r_array/output_rs
+    inverted_scaling = r_array/output_rs
     # Fit PCHIP interpolator from scipy
-    inv_func = PchipInterpolator(output_rs, inverte_scaling)
+    inv_func = PchipInterpolator(output_rs, inverted_scaling, extrapolate=True)
     return inv_func
 
 
@@ -83,57 +90,120 @@ def match_opencv_to_r_model(r_model_func: Callable, max_r: float):
     return res.x
 
 
-if __name__ == '__main__':
-    # Match the opencv fisheye model to the division model
-    ipol_coefficients = [-1.5252154821541331735e-06, -1.2259105349961298202e-12]
-    ipol_centre = [523.31006431267951484, 361.77796045674222114]
-    # Calculate the inverse model
-    ipol_undistortion_model = lambda r: ipol_division_model(r, ipol_coefficients[0], ipol_coefficients[1])
-    ipol_distortion_model = invert_model(ipol_undistortion_model)
-    # Now run the model forward, then backwards on the result and check that it is the same
-    for r in np.linspace(1.0, 500.0, 500):
-        undist_scale = ipol_undistortion_model(r)
-        dist_scale = ipol_distortion_model(undist_scale*r)
-        np.testing.assert_allclose(1, dist_scale*undist_scale, rtol=1e-3)
-
-    max_r = 600.0
+def generate_opencv_distortion_coefs(
+        division_coef_k1: float, 
+        division_coef_k2: float, 
+        cx: float,
+        cy: float,
+        max_r: float = 600.0):
+    """
+    Generate the opencv distortion coefficients from the division model coefficients.
+    Also generate a pseudo camera intrinsic matrix for the opencv model.
+    """
+    ipol_undistortion_model = lambda r: ipol_division_model(r, division_coef_k1, division_coef_k2)
+    ipol_distortion_model = invert_model(ipol_undistortion_model, max_r=max_r)
     k_array = match_opencv_to_r_model(ipol_distortion_model, max_r)
-    print(k_array)
+    print(f'k_array: {k_array}')
+    K = np.array([
+        [DEFAULT_OPENCV_FOCAL_LENGTH, 0, cx],
+        [0, DEFAULT_OPENCV_FOCAL_LENGTH, cy],
+        [0, 0, 1],
+    ], dtype=np.float64)
+    return k_array, K
 
-    import matplotlib.pyplot as plt
+
+def match_and_undistort_with_opencv(
+        img: np.ndarray,
+        division_coef_k1: float, 
+        division_coef_k2: float, 
+        cx: float,
+        cy: float,
+        max_r: float = 600.0):
+    """
+    Match the opencv fisheye model to a division model and undistort an image.
+    """
+    k_array, K = generate_opencv_distortion_coefs(
+        division_coef_k1,
+        division_coef_k2,
+        cx,
+        cy,
+        max_r,
+    )
+    # Pad the image on all sides by max(cx - w/2, cy - h/2) to avoid black borders
+    h, w = img.shape[:2]
+    diff_cx = cx - w/2.0
+    diff_cy = cy - h/2.0
+    pad = int(max(diff_cx, diff_cy))
+    img = cv2.copyMakeBorder(img, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+    # Now shift the image so that the principal point is at the centre, we have to do this
+    # because the opencv model is a model with distances relative to the centre of the image
+    # and then shifted to the principal point, while the division model is a model with distances
+    # defined in image space relative to the principal point.
+    img = np.roll(img, -int(diff_cx), axis=1)
+    img = np.roll(img, int(diff_cy), axis=0)
+    # Now trim the image to the original size
+    img = img[pad:pad+h, pad:pad+w]
+    # Set the principal point to the centre
+    K[0, 2] = w/2.0
+    K[1, 2] = h/2.0
+    map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, k_array, np.eye(3), K, (w, h), cv2.CV_16SC2)
+    img_res = cv2.remap(img, map1, map2, interpolation=cv2.INTER_CUBIC, borderMode=cv2.BORDER_DEFAULT)
+    return img_res, k_array, K
+
+
+if __name__ == '__main__':
+    # Load a test image
+    test_image_name = '../example/rubiks.png'
+    img = cv2.imread(test_image_name)
+    h, w = img.shape[:2]
+    max_r = w/2.0 + 10.0
+    undistorted_numpy_array, res_dict = process_image(test_image_name, w, h)
+    print(res_dict)
+
+    # These are the coefficients and centre of the division model
+    # ipol_coefficients = [-1.5252154821541331735e-06, -1.2259105349961298202e-12]
+    # ipol_centre = [523.31006431267951484, 361.77796045674222114]
+    ipol_coefficients = [res_dict['k1'], res_dict['k2']]
+    ipol_centre = [res_dict['cx'], res_dict['cy']]
+
+    # Genenerate the opencv distortion coefficients and camera matrix
+    # that might match the division model
+    k_array, K = generate_opencv_distortion_coefs(
+        ipol_coefficients[0],
+        ipol_coefficients[1],
+        ipol_centre[0],
+        ipol_centre[1],
+        max_r=max_r
+    )
+
+    # Plot an image of how well we match the models
+    ipol_undistortion_model = lambda r: ipol_division_model(r, ipol_coefficients[0], ipol_coefficients[1])
+    ipol_distortion_model = invert_model(ipol_undistortion_model, max_r=max_r)
     r_array = np.linspace(1.0, max_r, 1000)
     r_model = np.array([ipol_distortion_model(r) for r in r_array])
     r_res = np.array([opencv_Fr(r, *k_array) for r in r_array])
     plt.plot(r_array, r_model, label='Division model')
     plt.plot(r_array, r_res, label='OpenCV')
     plt.legend()
-    plt.show()
 
-    import cv2
-    # Load a test image
-    img = cv2.imread('../example/building.png')
-    # Get the image dimensions
-    h, w = img.shape[:2]
-    # Define the pseudo camera intrinsic matrix for opencv
-    K = np.array([
-        [500.0, 0, ipol_centre[0]],
-        [0, 500.0, ipol_centre[1]],
-        [0, 0, 1],
-    ], dtype=np.float64)
-    
-    # Get the size of the image
-    h, w = img.shape[:2]
-
-    # Generate undistortion and rectification maps
-    map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, k_array, np.eye(3), K, (w, h), cv2.CV_16SC2)
-
-    # Apply the undistortion using the maps
-    img_res = cv2.remap(img, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_DEFAULT)
+    # Undistort the image
+    img_res, k_array, K = match_and_undistort_with_opencv(
+        img,
+        ipol_coefficients[0],
+        ipol_coefficients[1],
+        ipol_centre[0],
+        ipol_centre[1],
+        max_r=max_r
+    )
 
     # Display the images
+    plt.figure()
     plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     plt.title('Original')
     plt.figure()
+    plt.imshow(undistorted_numpy_array)
+    plt.title('Undistorted division model')
+    plt.figure()
     plt.imshow(cv2.cvtColor(img_res, cv2.COLOR_BGR2RGB))
-    plt.title('Undistorted')
+    plt.title('Undistorted opencv')
     plt.show()
