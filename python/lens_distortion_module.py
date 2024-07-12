@@ -1,7 +1,12 @@
 import numpy as np
 
 
-from lens_distortion_pybind import UndistortionResult, processFile
+from lens_distortion_pybind import (
+    UndistortionResult, 
+    processFile, 
+    opencv_fisheye_polynomial, 
+    division_model_polynomial
+)
 
 
 def manually_unpack_image_pixel(image_bytes: np.ndarray, x, y, width_, height_, channel):

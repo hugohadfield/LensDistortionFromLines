@@ -2,9 +2,49 @@
 #include <pybind11/stl.h>
 #include <string>
 #include <vector>
+#include <math.h>
 #include "../src/lens_distortion_program.h"
 
 namespace py = pybind11;
+
+const double DEFAULT_OPENCV_FOCAL_LENGTH = 1000.0;
+
+double opencv_fisheye_polynomial(
+    double r, 
+    double k1, 
+    double k2, 
+    double k3, 
+    double k4, 
+    double k5, 
+    double k6,
+    double opencv_focal_length
+){
+    /*
+    This is effectively the opencv fisheye model, which is a polynomial approximation of the fisheye distortion.
+    The difference here is that the focal length is not included in the model, so the function is only dependent on the radial distance r.
+    */
+    double r_scaled = r / opencv_focal_length;
+    double theta = atanf(r_scaled);
+    double theta2 = theta * theta;
+    double theta4 = theta2 * theta2;
+    double theta6 = theta4 * theta2;
+    double theta8 = theta4 * theta4;
+    double theta10 = theta8 * theta2;
+    double theta12 = theta6 * theta6;
+    double poly = (1.0 + k1 * theta2 + k2 * theta4 + k3 * theta6 + k4 * theta8 + k5 * theta10 + k6 * theta12);
+    double theta_d = theta*poly;
+    if (std::abs(r_scaled) < 1e-10){
+        return (1.0 - r_scaled*r_scaled / 3.0)*poly;
+    }
+    return theta_d/r_scaled;
+}
+
+/// \brief This is the two parameter division model, which is a 
+///        simple division of the radial distance by a polynomial function.
+double division_model_polynomial(double r, double k1, double k2){
+    return 1.0 / (1.0 + k1 * r * r + k2 * r * r * r * r);
+}
+
 
 PYBIND11_MODULE(lens_distortion_pybind, m) {
     m.doc() = "Lens distortion correction algorithm"; // optional module docstring
@@ -57,5 +97,22 @@ PYBIND11_MODULE(lens_distortion_pybind, m) {
         py::arg("angle_resolution") = lens_distortion::default_angle_resolution,
         py::arg("distance_resolution") = lens_distortion::default_distance_resolution,
         py::arg("distortion_parameter_resolution") = lens_distortion::default_distortion_parameter_resolution
+    );
+
+    m.def("opencv_fisheye_polynomial", &opencv_fisheye_polynomial, "A function that calculates the opencv fisheye polynomial",
+        py::arg("r"),
+        py::arg("k1"),
+        py::arg("k2"),
+        py::arg("k3"),
+        py::arg("k4"),
+        py::arg("k5") = 0.0,
+        py::arg("k6") = 0.0,
+        py::arg("opencv_focal_length") = DEFAULT_OPENCV_FOCAL_LENGTH
+    );
+
+    m.def("division_model_polynomial", &division_model_polynomial, "A function that calculates the division model polynomial",
+        py::arg("r"),
+        py::arg("k1"),
+        py::arg("k2")
     );
 }

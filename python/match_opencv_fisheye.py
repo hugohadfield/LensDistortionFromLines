@@ -10,20 +10,31 @@ import matplotlib.pyplot as plt
 import cv2
 from pathlib import Path
 
-from lens_distortion_module import process_image
+from lens_distortion_module import (
+    process_image, 
+    opencv_fisheye_polynomial as opencv_fisheye_polynomial_pybind,
+    division_model_polynomial as division_model_polynomial_pybind
+)
 
 
 DEFAULT_OPENCV_FOCAL_LENGTH = 1000.0
 
 
-@numba.jit(nopython=True)
-def opencv_fisheye_polynomial(
-    r: float, k1: float, k2: float, k3: float, k4: float, k5: float = 0.0, k6: float = 0.0) -> float:
+def opencv_fisheye_polynomial_python(
+    r: float, 
+    k1: float, 
+    k2: float, 
+    k3: float, 
+    k4: float, 
+    k5: float = 0.0, 
+    k6: float = 0.0,
+    opencv_focal_length: float = DEFAULT_OPENCV_FOCAL_LENGTH
+) -> float:
     """
     This is effectively the opencv fisheye model, which is a polynomial approximation of the fisheye distortion.
     The difference here is that the focal length is not included in the model, so the function is only dependent on the radial distance r.
     """
-    scale: float = DEFAULT_OPENCV_FOCAL_LENGTH
+    scale: float = opencv_focal_length
     r_scaled = r / scale
     theta = np.arctan(r_scaled)
     theta2 = theta * theta
@@ -37,6 +48,13 @@ def opencv_fisheye_polynomial(
     if np.abs(r_scaled) < 1e-10:
         return (1.0 - r_scaled*r_scaled / 3.0)*poly
     return theta_d/r_scaled
+
+
+def opencv_fisheye_polynomial(r: float, k1: float, k2: float, k3: float, k4: float) -> float:
+    """
+    This is the opencv fisheye polynomial model, which is a polynomial approximation of the fisheye distortion.
+    """
+    return opencv_fisheye_polynomial_pybind(r, k1, k2, k3, k4)
 
 
 def invert_model(model_func: Callable, max_r: float = 600.0) -> Callable:
@@ -55,8 +73,7 @@ def invert_model(model_func: Callable, max_r: float = 600.0) -> Callable:
     return inv_func
 
 
-@numba.jit(nopython=True)
-def ipol_division_model(r: float, k1: float, k2: float):
+def division_model_polynomial_python(r: float, k1: float, k2: float):
     """
     This is the two parameter division model, which is a simple division of the radial distance by a polynomial function.
     """
@@ -75,7 +92,6 @@ def match_opencv_to_r_model(r_model_func: Callable, max_r: float):
     r_model = np.array([r_model_func(r) for r in r_array])
 
     # Now we need to fit the opencv model to the r_model
-    @numba.jit(nopython=True)
     def cost_function(k_array):
         k1, k2, k3, k4 = k_array
         sumout = 0.0
@@ -107,7 +123,7 @@ def generate_opencv_distortion_coefs(
     Generate the opencv distortion coefficients from the division model coefficients.
     Also generate a pseudo camera intrinsic matrix for the opencv model.
     """
-    ipol_undistortion_model = lambda r: ipol_division_model(r, division_coef_k1, division_coef_k2)
+    ipol_undistortion_model = lambda r: division_model_polynomial_pybind(r, division_coef_k1, division_coef_k2)
     ipol_distortion_model = invert_model(ipol_undistortion_model, max_r=max_r)
     k_array = match_opencv_to_r_model(ipol_distortion_model, max_r)
     print(f'k_array: {k_array}')
@@ -174,7 +190,7 @@ def analyse_ipol_opencv_fit(res_dict: Dict):
     )
 
     # Plot an graph of how well we match the models
-    ipol_undistortion_model = lambda r: ipol_division_model(r, ipol_coefficients[0], ipol_coefficients[1])
+    ipol_undistortion_model = lambda r: division_model_polynomial_pybind(r, ipol_coefficients[0], ipol_coefficients[1])
     ipol_distortion_model = invert_model(ipol_undistortion_model, max_r=max_r)
     r_array = np.linspace(1.0, max_r, 1000)
     r_model = np.array([ipol_distortion_model(r) for r in r_array])
