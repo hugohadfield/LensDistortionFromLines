@@ -7,6 +7,7 @@ import numba
 from scipy.interpolate import PchipInterpolator
 import matplotlib.pyplot as plt
 import cv2
+from pathlib import Path
 
 from lens_distortion_module import process_image
 
@@ -133,7 +134,7 @@ def match_and_undistort_with_opencv(
     h, w = img.shape[:2]
     diff_cx = cx - w/2.0
     diff_cy = cy - h/2.0
-    pad = int(max(diff_cx, diff_cy))
+    pad = int(max(abs(diff_cx), abs(diff_cy)))
     img = cv2.copyMakeBorder(img, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=(0, 0, 0))
     # Now shift the image so that the principal point is at the centre, we have to do this
     # because the opencv model is a model with distances relative to the centre of the image
@@ -153,16 +154,17 @@ def match_and_undistort_with_opencv(
 
 if __name__ == '__main__':
     # Load a test image
-    test_image_name = '../example/rubiks.png'
+    test_image_name = '../example/chicago.png'
     img = cv2.imread(test_image_name)
     h, w = img.shape[:2]
     max_r = w/2.0 + 10.0
-    undistorted_numpy_array, res_dict = process_image(test_image_name, w, h)
+    undistorted_numpy_array, res_dict = process_image(
+        test_image_name, w, h, str(Path('../output/').resolve()),
+        write_intermediates=True, write_output=True
+    )
     print(res_dict)
 
     # These are the coefficients and centre of the division model
-    # ipol_coefficients = [-1.5252154821541331735e-06, -1.2259105349961298202e-12]
-    # ipol_centre = [523.31006431267951484, 361.77796045674222114]
     ipol_coefficients = [res_dict['k1'], res_dict['k2']]
     ipol_centre = [res_dict['cx'], res_dict['cy']]
 

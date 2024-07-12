@@ -29,13 +29,20 @@ def unpack_image_from_list_numpy(image_bytes: np.ndarray, width_: int, height_: 
     return output_image
 
 
-def process_image(test_image: str, width: int, height: int, output_dir: str = ""):
-    output_folder = str(output_dir) + '/'
+def process_image(
+        test_image: str, width: int, height: int, output_dir: str = "",
+        write_intermediates: bool = False, write_output: bool = False
+    ):
+    if len(output_dir) == 0:
+        output_folder = './'
+    else:
+        output_folder = str(output_dir) + '/'
     canny_high_threshold = 0.8
     initial_distortion_parameter = 0.0
-    final_distortion_parameter = 3.0
-    distance_point_line_max_hough = 3.0
+    final_distortion_parameter = 8.0
+    distance_point_line_max_hough = 10.0
     angle_point_orientation_max_difference = 10.0
+    max_lines = 200
     tmodel = 'div'
     s_opt_c = 'True'
 
@@ -53,7 +60,10 @@ def process_image(test_image: str, width: int, height: int, output_dir: str = ""
         distance_point_line_max_hough,
         angle_point_orientation_max_difference,
         tmodel,
-        s_opt_c
+        s_opt_c,
+        write_intermediates,
+        write_output,
+        max_lines
     )
     print(f"Time taken for processFile: {time.time() - start_time}")
 
