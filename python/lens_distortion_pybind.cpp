@@ -1,53 +1,8 @@
-/*
-This is a pybind of the following:
-
-/// \brief This runs the algorithm, the main function will be a wrapper for this one
-int runAlgorithm(
-  const std::vector<std::string>& input_files,
-  const std::string& output_folder,
-  const int width,
-  const int height,
-  const float canny_high_threshold,
-  const float initial_distortion_parameter,
-  const float final_distortion_parameter,
-  const float distance_point_line_max_hough,
-  const float angle_point_orientation_max_difference,
-  const std::string& tmodel,
-  const std::string& s_opt_c
-){
-
-*/
-
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <string>
 #include <vector>
 #include "../src/lens_distortion_program.h"
-
-/*
-
-int processFile(
-  UndistortionResult & undistortion_result,
-  const std::string & input_filepath,
-  const std::string& output_folder,
-  const int width,
-  const int height,
-  const float canny_high_threshold,
-  const float initial_distortion_parameter,
-  const float final_distortion_parameter,
-  const float distance_point_line_max_hough,
-  const float angle_point_orientation_max_difference,
-  const std::string& tmodel,
-  const std::string& s_opt_c,
-  const bool write_intermediates,
-  const bool write_output,
-  const int max_lines,
-  const float angle_resolution,
-  const float distance_resolution,
-  const float distortion_parameter_resolution,
-  const lens_distortion_model& ini_ldm
-)
-*/
 
 namespace py = pybind11;
 

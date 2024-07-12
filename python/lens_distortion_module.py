@@ -1,15 +1,20 @@
 import numpy as np
 
-import time
 
 from lens_distortion_pybind import UndistortionResult, processFile
 
 
 def manually_unpack_image_pixel(image_bytes: np.ndarray, x, y, width_, height_, channel):
+    """
+    Manually unpack the pixel data from the flat image data returned by the C++ code.
+    """
     return image_bytes[x+y*width_+channel*width_*height_]
 
 
 def unpack_image_from_list(image_bytes: np.ndarray, width_: int, height_: int):
+    """
+    Manually unpack the image data from the flat image data returned by the C++ code.
+    """
     output_image = np.zeros((height_, width_, 3), dtype=np.uint8)
     for y in range(height_):
         for x in range(width_):
@@ -19,13 +24,16 @@ def unpack_image_from_list(image_bytes: np.ndarray, width_: int, height_: int):
 
 
 def unpack_image_from_list_numpy(image_bytes: np.ndarray, width_: int, height_: int):
+    """
+    This is the numpy functionality that does the same as `unpack_image_from_list`.
+    """
     # Reshape the flat image data to the required shape (height, width, channels)
     reshaped_image = image_bytes.reshape((3, height_, width_))
     # Swap the first and last axes to get the correct shape (height, width, channels)
     reshaped_image = np.swapaxes(reshaped_image, 0, 2)
     reshaped_image = np.swapaxes(reshaped_image, 0, 1)
     # Reverse the rows to match the `height_ - 1 - y` transformation
-    output_image = np.ascontiguousarray(reshaped_image[::-1, :, :])
+    output_image = np.ascontiguousarray(reshaped_image[::-1, :, :], dtype=np.uint8)
     return output_image
 
 
@@ -33,6 +41,9 @@ def process_image(
         test_image: str, width: int, height: int, output_dir: str = "",
         write_intermediates: bool = False, write_output: bool = False
     ):
+    """
+    This is the main function that calls the C++ code to undistort an image.
+    """
     if len(output_dir) == 0:
         output_folder = './'
     else:
@@ -46,7 +57,6 @@ def process_image(
     tmodel = 'div'
     s_opt_c = 'True'
 
-    start_time = time.time()
     res = UndistortionResult()
     processFile(
         res, 
@@ -65,8 +75,6 @@ def process_image(
         write_output,
         max_lines
     )
-    print(f"Time taken for processFile: {time.time() - start_time}")
-
     res_dict = {
         'success': res.success,
         'tmodel': res.tmodel,
@@ -78,10 +86,7 @@ def process_image(
         'width': res.width,
         'height': res.height
     }
-
-    start_time = time.time()
-    undistorted_data = np.array(res.undistorted())
+    undistorted_data = np.array(res.undistorted(), dtype=np.uint8)
     undistorted_numpy_array = unpack_image_from_list_numpy(undistorted_data, res.width, res.height)
-    print(f"Time taken for pass and unpack: {time.time() - start_time}")
     return undistorted_numpy_array, res_dict
 

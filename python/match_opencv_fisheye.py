@@ -1,5 +1,6 @@
 
-from typing import Callable
+from typing import Callable, Dict
+import json
 
 import numpy as np
 from scipy.optimize import minimize
@@ -16,7 +17,7 @@ DEFAULT_OPENCV_FOCAL_LENGTH = 1000.0
 
 
 @numba.jit(nopython=True)
-def opencv_Fr(
+def opencv_fisheye_polynomial(
     r: float, k1: float, k2: float, k3: float, k4: float, k5: float = 0.0, k6: float = 0.0) -> float:
     """
     This is effectively the opencv fisheye model, which is a polynomial approximation of the fisheye distortion.
@@ -39,6 +40,11 @@ def opencv_Fr(
 
 
 def invert_model(model_func: Callable, max_r: float = 600.0) -> Callable:
+    """
+    Given a model function f(r) that takes a radial distance as input and returns a scaling factor,
+    this function will return a function s(r) that also takes a radial distance as input, and returns
+    a scaling factor as output such that s(f(r)*r) = r.
+    """
     r_array = np.linspace(1.0, max_r, 5000)
     y = np.array([model_func(r) for r in r_array])
     output_rs = y*r_array
@@ -74,7 +80,7 @@ def match_opencv_to_r_model(r_model_func: Callable, max_r: float):
         k1, k2, k3, k4 = k_array
         sumout = 0.0
         for i, r in enumerate(r_array):
-            sumout += (r_model[i] - opencv_Fr(r, k1, k2, k3, k4))**2
+            sumout += (r_model[i] - opencv_fisheye_polynomial(r, k1, k2, k3, k4))**2
         return sumout
     
     # Initial guess for the parameters
@@ -152,18 +158,7 @@ def match_and_undistort_with_opencv(
     return img_res, k_array, K
 
 
-if __name__ == '__main__':
-    # Load a test image
-    test_image_name = '../example/chicago.png'
-    img = cv2.imread(test_image_name)
-    h, w = img.shape[:2]
-    max_r = w/2.0 + 10.0
-    undistorted_numpy_array, res_dict = process_image(
-        test_image_name, w, h, str(Path('../output/').resolve()),
-        write_intermediates=True, write_output=True
-    )
-    print(res_dict)
-
+def analyse_ipol_opencv_fit(res_dict: Dict):
     # These are the coefficients and centre of the division model
     ipol_coefficients = [res_dict['k1'], res_dict['k2']]
     ipol_centre = [res_dict['cx'], res_dict['cy']]
@@ -178,34 +173,87 @@ if __name__ == '__main__':
         max_r=max_r
     )
 
-    # Plot an image of how well we match the models
+    # Plot an graph of how well we match the models
     ipol_undistortion_model = lambda r: ipol_division_model(r, ipol_coefficients[0], ipol_coefficients[1])
     ipol_distortion_model = invert_model(ipol_undistortion_model, max_r=max_r)
     r_array = np.linspace(1.0, max_r, 1000)
     r_model = np.array([ipol_distortion_model(r) for r in r_array])
-    r_res = np.array([opencv_Fr(r, *k_array) for r in r_array])
+    r_res = np.array([opencv_fisheye_polynomial(r, *k_array) for r in r_array])
+    
+    plt.figure()
     plt.plot(r_array, r_model, label='Division model')
     plt.plot(r_array, r_res, label='OpenCV')
     plt.legend()
+    plt.show()
+
+
+def side_by_side_images(
+    img_original: np.ndarray, img_divison: np.ndarray, img_opencv: np.ndarray
+):
+    """
+    Display images side by side as sub figures
+    """
+    plt.figure()
+    plt.subplot(2, 2, 1)
+    plt.imshow(cv2.cvtColor(img_original, cv2.COLOR_BGR2RGB))
+    plt.title('Original')
+    plt.subplot(2, 2, 2)
+    plt.imshow(cv2.cvtColor(img_divison, cv2.COLOR_BGR2RGB))
+    plt.title('Division model')
+    plt.subplot(2, 2, 3)
+    plt.imshow(cv2.cvtColor(img_opencv, cv2.COLOR_BGR2RGB))
+    plt.title('OpenCV')
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == '__main__':
+    # Load a test image
+    test_image_name = '../example/chicago.png'
+    img = cv2.imread(test_image_name)
+    h, w = img.shape[:2]
+
+    # The maximum radial distance to consider for the distortion model, if this is too
+    # large there will be a problem with the output. Here we will write the output
+    # as well as the intermediate images to allow for debugging.
+    max_r = w/2.0 + 10.0
+    undistorted_numpy_array, res_dict = process_image(
+        test_image_name, w, h, 
+        str(Path('../output/').resolve()),
+        write_intermediates=True, 
+        write_output=True
+    )
+    # undistorted_numpy_array from rgb to bgr
+    undistorted_numpy_array = cv2.cvtColor(undistorted_numpy_array, cv2.COLOR_RGB2BGR)
+
+    print("The result of undistortion is:")
+    print(res_dict)
+
+    # Do some analysis of the results
+    analyse_ipol_opencv_fit(res_dict)
 
     # Undistort the image
-    img_res, k_array, K = match_and_undistort_with_opencv(
+    img_opencv, k_array, K = match_and_undistort_with_opencv(
         img,
-        ipol_coefficients[0],
-        ipol_coefficients[1],
-        ipol_centre[0],
-        ipol_centre[1],
+        res_dict['k1'],
+        res_dict['k2'],
+        res_dict['cx'],
+        res_dict['cy'],
         max_r=max_r
     )
 
-    # Display the images
-    plt.figure()
-    plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-    plt.title('Original')
-    plt.figure()
-    plt.imshow(undistorted_numpy_array)
-    plt.title('Undistorted division model')
-    plt.figure()
-    plt.imshow(cv2.cvtColor(img_res, cv2.COLOR_BGR2RGB))
-    plt.title('Undistorted opencv')
-    plt.show()
+    # Display the images side by side
+    side_by_side_images(img, undistorted_numpy_array, img_opencv)
+
+    # Save the images
+    input_image_name = str(Path(test_image_name).name).split('.')[0]
+    output_path = Path('../output/' + input_image_name + '/').resolve()
+    output_path.mkdir(exist_ok=True)
+    cv2.imwrite(str(output_path) + '/original.png', img)
+    cv2.imwrite(str(output_path) + '/division_model.png', undistorted_numpy_array)
+    cv2.imwrite(str(output_path) + '/opencv_model.png', img_opencv)
+
+    # Save the results dictionary as json
+    with open(str(output_path) + '/results.json', 'w') as f:
+        json.dump(res_dict, f)
+    
