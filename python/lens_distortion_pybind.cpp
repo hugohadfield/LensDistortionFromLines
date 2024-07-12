@@ -22,7 +22,7 @@ int runAlgorithm(
 #include <pybind11/stl.h>
 #include <string>
 #include <vector>
-#include "../../src/lens_distortion_program.h"
+#include "../src/lens_distortion_program.h"
 
 /*
 
@@ -101,7 +101,6 @@ PYBIND11_MODULE(lens_distortion_pybind, m) {
         py::arg("max_lines") = lens_distortion::default_max_lines,
         py::arg("angle_resolution") = lens_distortion::default_angle_resolution,
         py::arg("distance_resolution") = lens_distortion::default_distance_resolution,
-        py::arg("distortion_parameter_resolution") = lens_distortion::default_distortion_parameter_resolution, 
-        py::call_guard<py::gil_scoped_release>()
+        py::arg("distortion_parameter_resolution") = lens_distortion::default_distortion_parameter_resolution
     );
 }

@@ -32,7 +32,7 @@ target_include_directories(cameraLensCalibration PUBLIC
 add_subdirectory(extern/pybind11)
 
 # Create the pybind11 module
-pybind11_add_module(lens_distortion_pybind python/pybind/lens_distortion_pybind.cpp ${files_header} ${files_cpp})
+pybind11_add_module(lens_distortion_pybind python/lens_distortion_pybind.cpp ${files_header} ${files_cpp})
 
 # Link against libpng
 target_link_libraries(lens_distortion_pybind PRIVATE ${PNG_LIBRARIES})
