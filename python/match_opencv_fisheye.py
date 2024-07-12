@@ -2,6 +2,7 @@
 from typing import Callable, Dict
 import json
 
+import click
 import numpy as np
 from scipy.optimize import minimize
 from scipy.interpolate import PchipInterpolator
@@ -173,23 +174,23 @@ def match_and_undistort_with_opencv(
     return img_res, k_array, K
 
 
-def analyse_ipol_opencv_fit(res_dict: Dict):
+def analyse_division_opencv_fit(res_dict: Dict, max_r: float = 600.0):
     # These are the coefficients and centre of the division model
-    ipol_coefficients = [res_dict['k1'], res_dict['k2']]
-    ipol_centre = [res_dict['cx'], res_dict['cy']]
+    division_coefficients = [res_dict['k1'], res_dict['k2']]
+    division_centre = [res_dict['cx'], res_dict['cy']]
 
     # Genenerate the opencv distortion coefficients and camera matrix
     # that might match the division model
     k_array, K = generate_opencv_distortion_coefs(
-        ipol_coefficients[0],
-        ipol_coefficients[1],
-        ipol_centre[0],
-        ipol_centre[1],
+        division_coefficients[0],
+        division_coefficients[1],
+        division_centre[0],
+        division_centre[1],
         max_r=max_r
     )
 
     # Plot an graph of how well we match the models
-    ipol_undistortion_model = lambda r: division_model_polynomial_pybind(r, ipol_coefficients[0], ipol_coefficients[1])
+    ipol_undistortion_model = lambda r: division_model_polynomial_pybind(r, division_coefficients[0], division_coefficients[1])
     ipol_distortion_model = invert_model(ipol_undistortion_model, max_r=max_r)
     r_array = np.linspace(1.0, max_r, 1000)
     r_model = np.array([ipol_distortion_model(r) for r in r_array])
@@ -222,9 +223,13 @@ def side_by_side_images(
     plt.show()
 
 
-if __name__ == '__main__':
+@click.command()
+@click.option('--test_image_name', type=str, default='../example/chicago.png')
+@click.option('--output_dir', type=str, default='../output/')
+@click.option('--write_intermediates', type=bool, default=False)
+@click.option('--write_output', type=bool, default=False)
+def cli(test_image_name, output_dir, write_intermediates, write_output):
     # Load a test image
-    test_image_name = '../example/chicago.png'
     img = cv2.imread(test_image_name)
     h, w = img.shape[:2]
 
@@ -234,9 +239,9 @@ if __name__ == '__main__':
     max_r = w/2.0 + 10.0
     undistorted_numpy_array, res_dict = process_image(
         test_image_name, w, h, 
-        str(Path('../output/').resolve()),
-        write_intermediates=True, 
-        write_output=True
+        str(Path(output_dir).resolve()),
+        write_intermediates=write_intermediates, 
+        write_output=write_output
     )
     # undistorted_numpy_array from rgb to bgr
     undistorted_numpy_array = cv2.cvtColor(undistorted_numpy_array, cv2.COLOR_RGB2BGR)
@@ -245,7 +250,7 @@ if __name__ == '__main__':
     print(res_dict)
 
     # Do some analysis of the results
-    analyse_ipol_opencv_fit(res_dict)
+    analyse_division_opencv_fit(res_dict, max_r=max_r)
 
     # Undistort the image
     img_opencv, k_array, K = match_and_undistort_with_opencv(
@@ -272,3 +277,8 @@ if __name__ == '__main__':
     with open(str(output_path) + '/results.json', 'w') as f:
         json.dump(res_dict, f)
     
+
+if __name__ == '__main__':
+    cli()
+    # Example usage: 
+    # python match_opencv_fisheye.py --test_image_name ../example/chicago.png --output_dir ../output/ --write_intermediates False --write_output False
