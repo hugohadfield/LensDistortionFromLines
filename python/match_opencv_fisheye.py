@@ -4,7 +4,6 @@ import json
 
 import numpy as np
 from scipy.optimize import minimize
-import numba
 from scipy.interpolate import PchipInterpolator
 import matplotlib.pyplot as plt
 import cv2
