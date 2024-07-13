@@ -11,6 +11,99 @@ The following changes have been made to the original code:
 - Added scripts to handle undistortion of images, passing data between Python and C++ code.
 
 
+## How to build the python bindings
+
+Use the following commands to build the python bindings:
+
+```
+cd python
+cmake ..
+make
+```
+
+This will create a python module called `lens_distortion_pybind` in the `python` directory. You can import this module in your python code and use the functions provided by the C++ code.
+
+## How to use the python bindings
+
+The best way to interact with the python bindings is to use the `lens_distortion_module.py` library. This library provides a high-level interface to the C++ code and includes unpacking to the correct numpy array size.
+
+## Match OpenCV distortion coefficients
+
+The `match_opencv_distortion.py` script can be used to run the C++ code on an image and then match
+the distortion coefficients estimated by the C++ code to the distortion coefficients used by OpenCV. It then also provides a function that will use these distortion coefficients to undistort an image using OpenCV. This function is slightly different to the standard OpenCV undistortion procedure as, due to the difference in the way the fisheye polynomials are defined, we need to apply the distortion polynomial to the image centred on the principal undistortion point. This is all handled by the `def undistort_with_matching_opencv` function so you don't need to worry about it. 
+
+### How the matching works
+Matching the division model coefficients to the OpenCV fisheye coefficients is not trivial as the divison model and OpenCV fisheye model are not the same. The division model from the paper is a model for **correcting** distortion and is defined as:
+
+```
+r = sqrt((u' - c_x)^2 + (v' - c_x)^2)
+d(r) = 1 / (1 + d1 * r^2 + d2 * r^4)
+
+u = d(r) * (u' - c_x) + c_x
+v = d(r) * (v' - c_y) + c_y
+```
+where `r` is the distance from the estimated principal point of distortion. A key thing to note here is that this in its current form is a model for **correcting** distortion and is defined in terms of the **distorted** image coordinates `u'` and `v'` and is not a generative model for **applying** distortion.
+
+
+The OpenCV fisheye model is defined operating on points projected into normalised image space and is a model for **applying** distortion. It operates on points **before** addition of the image centre. For a given focal length `f` the OpenCV fisheye model is defined as:
+
+```
+r_theta = sqrt(x^2 + y^2)
+theta = atan(r_theta)
+theta_d = theta * (1 + k1 * theta^2 + k2 * theta^4 + k3 * theta^6 + k4 * theta^8)
+s(r_theta) = theta_d / r_theta
+
+u' = s(r_theta) * f * x + c_x
+v' = s(r_theta) * f * y + c_y
+```
+
+We need to solve a couple of issues here to allow matching of the two models. Firstly, the OpenCV model requires a focal length `f` to be used, which is not present in the division model. Secondly, the OpenCV model is defined in terms of the pre-distrotion normalised image coordinates `x` and `y` and the division model is defined in terms of the distorted image coordinates `u'` and `v'`.
+
+Our goal here is to take known `d1` and `d2` division model coefficients and find the `k1`, `k2`, `k3`, `k4` OpenCV fisheye coefficients that would produce the same distortion. We can simplify the problem by centring the image on `c_x` and `c_y` in advance. This means we need to match the following:
+```
+r_theta = sqrt(x^2 + y^2)
+theta = atan(r_theta)
+theta_d = theta * (1 + k1 * theta^2 + k2 * theta^4 + k3 * theta^6 + k4 * theta^8)
+s(r_theta) = theta_d / r_theta
+u' = s(r_theta) * f * x = s(r_theta) * u
+v' = s(r_theta) * f * y = s(r_theta) * v
+```
+
+```
+r^2 = (u'^2 + v'^2) = (s(r_theta) * f * x)^2 + (s(r_theta) * f * y)^2 = f^2 * s(r_theta)^2 * (x^2 + y^2) = f^2 * s(r_theta)^2 * r_theta^2
+r = f * s(r_theta) * r_theta
+```
+and
+```
+r = sqrt(u'^2 + v'^2)
+d(r) = 1 / (1 + d1 * r^2 + d2 * r^4)
+u = d(r) * u'
+v = d(r) * v'
+u^2 + v^2 = d(r)^2 * (u'^2 + v'^2)
+
+f*x = u
+f*y = v
+u^2 + v^2 = f^2 * (x^2 + y^2)
+
+f^2 * (x^2 + y^2) = d(r)^2 * (u'^2 + v'^2)
+f^2 * r_theta^2 = d(r)^2 * r^2
+r_theta^2 = d(r)^2 * r^2 / f^2
+r_theta = d(r) * r / f
+f * r_theta = d(r) * r
+```
+
+
+```
+r_theta = d(r) * r / f
+r = f * s(r_theta) * r_theta
+r = f * s(d(r) * r / f) * d(r) * r / f
+r = s(d(r) * r / f) * d(r) * r
+r * ( s(d(r) * r / f) * d(r) - 1 ) = 0
+s(d(r) * r / f) * d(r) - 1 = 0
+s(d(r) * r / f) = 1 / d(r) 
+```
+
+
 ___
 
 ___
@@ -20,7 +113,7 @@ ___
 % Automatic Lens Distortion Correction Using Two Parameter Polynomial and Division Models with iterative optimization
 
 
-# ABOUT
+## ABOUT
 
 * Author    : Miguel Alemán-Flores  <maleman@ctim.es>
               Luis Álvarez  <lalvarez@ctim.es>
@@ -30,7 +123,7 @@ ___
 * License   : CC Creative Commons "Attribution-NonCommercial-ShareAlike" 
               see http://creativecommons.org/licenses/by-nc-sa/3.0/es/deed.en
 
-# OVERVIEW
+## OVERVIEW
 
 This source code provides an implementation of a lens distortion correction algorithm 
 algorithm as described in IPOL
@@ -48,7 +141,7 @@ The programs produces 4 outputs:
    (4) An output image where the distortion model is applied to correct the 
        image distortion. 
 
-# REQUIREMENTS
+## REQUIREMENTS
 
 The code is written in ANSI C, and should compile on any system with
 an ANSI C compiler.
@@ -64,7 +157,7 @@ However, if you have problems with png library, you can follow the next steps:
 		* brew install libpng
 		* brew link libpng --force
 
-# COMPILATION
+## COMPILATION
 
 We have checked our code on:
 	- Fedora 11 (Leonidas) with GCC version 4.4.1-2
@@ -92,7 +185,7 @@ Alternatively, you can manually compile
 		ami_utilities/utilities.cpp ami_pol/ami_pol.cpp 
 		-lpng -lm -o lens_distortion_correction_2p_iterative_optimization
 
-# USAGE
+## USAGE
 
 This program takes 10 parameters:
 “exe_file  input_directory output_directory high_threshold_Canny initial_distortion_parameter final_distortion_parameter distance_point_line_max_hough angle_point_orientation_max_difference type_of_lens_distortion_model center_optimization primitives_file” 
@@ -109,7 +202,7 @@ This program takes 10 parameters:
 * 'center_optimization'                   : optimization of the center of the lens distortion model (True or False)
 
 
-# SOURCE CODE ORGANIZATION
+## SOURCE CODE ORGANIZATION
 
 The source code is organized in the following folders : 
 
@@ -124,7 +217,7 @@ The source code is organized in the following folders :
 * 'documentation'       : doxygen documentation of the source code.
 * 'example'             : example input image and results.
 
-# EXAMPLE
+## EXAMPLE
 
 You can test the program with the provided test image (building.png) in the 
 following way:

@@ -50,11 +50,11 @@ def opencv_fisheye_polynomial_python(
     return theta_d/r_scaled
 
 
-def opencv_fisheye_polynomial(r: float, k1: float, k2: float, k3: float, k4: float) -> float:
+def opencv_fisheye_polynomial(r: float, k1: float, k2: float, k3: float, k4: float, opencv_focal_length: float = DEFAULT_OPENCV_FOCAL_LENGTH) -> float:
     """
     This is the opencv fisheye polynomial model, which is a polynomial approximation of the fisheye distortion.
     """
-    return opencv_fisheye_polynomial_pybind(r, k1, k2, k3, k4)
+    return opencv_fisheye_polynomial_pybind(r, k1, k2, k3, k4, 0.0, 0.0, opencv_focal_length)
 
 
 def invert_model(model_func: Callable, max_r: float = 600.0) -> Callable:
@@ -80,7 +80,7 @@ def division_model_polynomial_python(r: float, k1: float, k2: float):
     return 1.0 / (1.0 + k1 * r * r + k2 * r * r * r * r)
 
 
-def match_opencv_to_r_model(r_model_func: Callable, max_r: float):
+def match_opencv_to_distortion_model(r_model_func: Callable, max_r: float):
     """
     Match an opencv fisheye radial distortion model to a given radial distortion 
     model implemented as a function of the radial distance in pixels from the distortion centre.
@@ -113,6 +113,29 @@ def match_opencv_to_r_model(r_model_func: Callable, max_r: float):
     return res.x
 
 
+def match_opencv_distortion_to_undistortion_model(undistortion_model: Callable, max_r: float):
+    """
+    s(d(r) * r / f) = 1 / d(r) 
+    """
+    r_array = np.linspace(1.0, max_r, 1000)
+    d = np.array([undistortion_model(r) for r in r_array])
+    def cost_function(k_array):
+        k1, k2, k3, k4 = k_array
+        sumout = 0.0
+        for i, r in enumerate(r_array):
+            r_theta = d[i] * r / DEFAULT_OPENCV_FOCAL_LENGTH
+            sumout += (1.0 / d[i] - opencv_fisheye_polynomial(r_theta, k1, k2, k3, k4, opencv_focal_length=1.0))**2
+        return sumout
+    k0 = [0.0, 0.0, 0.0, 0.0]
+    res = minimize(
+        cost_function,
+        k0,
+        method='l-bfgs-b',
+        options={'atol': 1e-10, 'disp': False, 'maxiter': 10000, 'rtol': 1e-10},
+    )
+    print(res)
+    return res.x
+
 def generate_opencv_distortion_coefs(
         division_coef_k1: float, 
         division_coef_k2: float, 
@@ -123,9 +146,13 @@ def generate_opencv_distortion_coefs(
     Generate the opencv distortion coefficients from the division model coefficients.
     Also generate a pseudo camera intrinsic matrix for the opencv model.
     """
-    ipol_undistortion_model = lambda r: division_model_polynomial_pybind(r, division_coef_k1, division_coef_k2)
-    ipol_distortion_model = invert_model(ipol_undistortion_model, max_r=max_r)
-    k_array = match_opencv_to_r_model(ipol_distortion_model, max_r)
+    # ipol_undistortion_model = lambda r: division_model_polynomial_pybind(r, division_coef_k1, division_coef_k2)
+    # ipol_distortion_model = invert_model(ipol_undistortion_model, max_r=max_r)
+    # k_array = match_opencv_to_distortion_model(ipol_distortion_model, max_r)
+    k_array = match_opencv_distortion_to_undistortion_model(
+        lambda r: division_model_polynomial_python(r, division_coef_k1, division_coef_k2),
+        max_r
+    )
     print(f'k_array: {k_array}')
     K = np.array([
         [DEFAULT_OPENCV_FOCAL_LENGTH, 0, cx],
