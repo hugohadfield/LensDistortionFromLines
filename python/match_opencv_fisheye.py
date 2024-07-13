@@ -135,24 +135,22 @@ def generate_opencv_distortion_coefs(
     return k_array, K
 
 
-def match_and_undistort_with_opencv(
-        img: np.ndarray,
-        division_coef_k1: float, 
-        division_coef_k2: float, 
-        cx: float,
-        cy: float,
-        max_r: float = 600.0):
+def undistort_with_matching_opencv(
+    img: np.ndarray,
+    K: np.ndarray,
+    opencv_k1: float,
+    opencv_k2: float,
+    opencv_k3: float,
+    opencv_k4: float
+):
     """
-    Match the opencv fisheye model to a division model and undistort an image.
+    Undistort an image using the opencv fisheye model with the given distortion coefficients.
+    This is slightly different to the standard opencv model as we have to shift the image
+    to the principal point before undistorting.
     """
-    k_array, K = generate_opencv_distortion_coefs(
-        division_coef_k1,
-        division_coef_k2,
-        cx,
-        cy,
-        max_r,
-    )
     # Pad the image on all sides by max(cx - w/2, cy - h/2) to avoid black borders
+    cx = K[0, 2]
+    cy = K[1, 2]
     h, w = img.shape[:2]
     diff_cx = cx - w/2.0
     diff_cy = cy - h/2.0
@@ -167,11 +165,42 @@ def match_and_undistort_with_opencv(
     # Now trim the image to the original size
     img = img[pad:pad+h, pad:pad+w]
     # Set the principal point to the centre
-    K[0, 2] = w/2.0
-    K[1, 2] = h/2.0
-    map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, k_array, np.eye(3), K, (w, h), cv2.CV_16SC2)
+    Kcopy = K.copy()
+    Kcopy[0, 2] = w/2.0
+    Kcopy[1, 2] = h/2.0
+    k_array = np.array([opencv_k1, opencv_k2, opencv_k3, opencv_k4])
+    map1, map2 = cv2.fisheye.initUndistortRectifyMap(Kcopy, k_array, np.eye(3), Kcopy, (w, h), cv2.CV_16SC2)
     img_res = cv2.remap(img, map1, map2, interpolation=cv2.INTER_CUBIC, borderMode=cv2.BORDER_DEFAULT)
-    return img_res, k_array, K
+    return img_res, Kcopy
+    
+
+def match_and_undistort_with_opencv(
+    img: np.ndarray,
+    division_coef_k1: float, 
+    division_coef_k2: float, 
+    cx: float,
+    cy: float,
+    max_r: float = 600.0
+):
+    """
+    Match the opencv fisheye model to a division model and undistort an image.
+    """
+    k_array, K = generate_opencv_distortion_coefs(
+        division_coef_k1,
+        division_coef_k2,
+        cx,
+        cy,
+        max_r,
+    )
+    img_res, K_new = undistort_with_matching_opencv(
+        img,
+        K,
+        k_array[0],
+        k_array[1],
+        k_array[2],
+        k_array[3]
+    )
+    return img_res, k_array, K_new
 
 
 def analyse_division_opencv_fit(res_dict: Dict, max_r: float = 600.0):
