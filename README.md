@@ -1,4 +1,20 @@
-﻿% Automatic Lens Distortion Correction Using Two Parameter Polynomial and Division Models with iterative optimization
+﻿
+# Python bindings of automatic lens distortion correction
+
+This repository contains Python bindings of the automatic lens distortion correction algorithm implemented in C++ by Miguel Alemán-Flores, Luis Álvarez, Luis Gómez, and Daniel Santana-Cedrés. The original code is available at [IPOL](http://www.ipol.im/pub/pre/130/).
+This repository is a fork of the original code, taken from: [LensDistortionFromLines](https://github.com/alicevision/LensDistortionFromLines).
+
+The following changes have been made to the original code:
+- Small modifications to the original code to improve quality and compatibility with Python bindings.
+- Added Python bindings using pybind11.
+- Added Python utility to match OpenCV distortion coefficients to the distortion coefficients estimated by the C++ code.
+- Added scripts to handle undistortion of images, passing data between Python and C++ code.
+
+
+# ORIGINAL README
+
+% Automatic Lens Distortion Correction Using Two Parameter Polynomial and Division Models with iterative optimization
+
 
 # ABOUT
 
