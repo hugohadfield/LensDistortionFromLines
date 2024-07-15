@@ -11,7 +11,7 @@ import cv2
 from pathlib import Path
 
 from lens_distortion_module import (
-    process_image, 
+    process_image_file, 
     opencv_fisheye_polynomial as opencv_fisheye_polynomial_pybind,
     division_model_polynomial as division_model_polynomial_pybind
 )
@@ -241,7 +241,7 @@ def match_and_undistort_with_opencv(
 
 def analyse_division_opencv_fit(res_dict: Dict, max_r: float = 600.0):
     # These are the coefficients and centre of the division model
-    division_coefficients = [res_dict['k1'], res_dict['k2']]
+    division_coefficients = [res_dict['d1'], res_dict['d2']]
     division_centre = [res_dict['cx'], res_dict['cy']]
 
     # Genenerate the opencv distortion coefficients and camera matrix
@@ -305,7 +305,7 @@ def cli(test_image_name, output_dir, write_intermediates, write_output):
     # large there will be a problem with the output. Here we will write the output
     # as well as the intermediate images to allow for debugging.
     max_r = w/2.0 + 10.0
-    undistorted_numpy_array, res_dict = process_image(
+    undistorted_numpy_array, res_dict = process_image_file(
         test_image_name, w, h, 
         str(Path(output_dir).resolve()),
         write_intermediates=write_intermediates, 
@@ -323,8 +323,8 @@ def cli(test_image_name, output_dir, write_intermediates, write_output):
     # Undistort the image
     img_opencv_direct, _, _ = match_and_undistort_with_opencv(
         img,
-        res_dict['k1'],
-        res_dict['k2'],
+        res_dict['d1'],
+        res_dict['d2'],
         res_dict['cx'],
         res_dict['cy'],
         max_r=max_r,
@@ -333,8 +333,8 @@ def cli(test_image_name, output_dir, write_intermediates, write_output):
 
     img_opencv_inverse, _, _ = match_and_undistort_with_opencv(
         img,
-        res_dict['k1'],
-        res_dict['k2'],
+        res_dict['d1'],
+        res_dict['d2'],
         res_dict['cx'],
         res_dict['cy'],
         max_r=max_r,

@@ -267,9 +267,9 @@ void read_directory(std::vector<std::string>& out_filepaths, const std::string& 
 
 //------------------------------------------------------------------------------
 
-int processFile(
+int processImage(
   UndistortionResult & undistortion_result,
-  const std::string & input_filepath,
+  ami::image<unsigned char>& input_image,
   const std::string& output_folder,
   const int width,
   const int height,
@@ -285,10 +285,10 @@ int processFile(
   const int max_lines,
   const float angle_resolution,
   const float distance_resolution,
-  const float distortion_parameter_resolution
+  const float distortion_parameter_resolution,
+  const std::string & input_basename = ""
 ){
   int size_ = width*height; // image size
-  cout << "Processing file: " << input_filepath << endl;
   cout << "Output folder: " << output_folder << endl;
   cout << "Image size: " << width << "x" << height << " size_ " << size_ << endl;
   const bool opt_center = (s_opt_c == string("True"));
@@ -304,17 +304,10 @@ int processFile(
     image_primitives i_primitives; //object to store output edge line structure
     ami::subpixel_image_contours contours;
     
-    const std::string input_filename = get_filename(input_filepath);
-    std::string input_basename, input_extension;
-    split_filename(input_filename, input_basename, input_extension);
-    
-    ami::image<unsigned char> input(input_filepath);
-    ami::image<unsigned char> gray(width,height,1,0); //gray-level image to call canny
-
     //Converting the input image to gray level
+    ami::image<unsigned char> gray(width,height,1,0); //gray-level image to call canny
     for(int i=0; i<size_; i++)
-      gray[i] = 0.3 * input[i] + 0.59 * input[i+size_] + 0.11 * input[i+size_*2];
-    input.clear();
+      gray[i] = 0.3 * input_image[i] + 0.59 * input_image[i+size_] + 0.11 * input_image[i+size_*2];
 
     //ALGORITHM STAGE 1 : Detecting edges with Canny   
     ami::image<unsigned char> edges(width, height, 1,0); //image to store edge information
@@ -407,12 +400,11 @@ int processFile(
     if(i_primitives.get_distortion().get_d().size() > 0)
     {
       cout << "Correcting the distortion..." << endl;
-      ami::image<unsigned char> inputImage(input_filepath);
       
       if(i_primitives.get_distortion().get_type() == DIVISION)
       {
         undistorted = undistort_quotient_image_inverse(
-          inputImage, // input image
+          input_image, // input image
           i_primitives.get_distortion(), // lens distortion model
           3 // integer index to fix the way the corrected image is scaled to fit input size image
         );
@@ -440,7 +432,7 @@ int processFile(
           }
         }
         undistorted = undistort_image_inverse_fast(
-          inputImage,
+          input_image,
           vs-1,
           a,
           i_primitives.get_distortion().get_distortion_center(),
@@ -459,8 +451,8 @@ int processFile(
       undistortion_result.success = true;
       undistortion_result.tmodel = tmodel;
       undistortion_result.opt_c = opt_center;
-      undistortion_result.k1 = i_primitives.get_distortion().get_d()[1];
-      undistortion_result.k2 = i_primitives.get_distortion().get_d()[2];
+      undistortion_result.d1 = i_primitives.get_distortion().get_d()[1];
+      undistortion_result.d2 = i_primitives.get_distortion().get_d()[2];
       undistortion_result.cx = i_primitives.get_distortion().get_distortion_center().x;
       undistortion_result.cy = i_primitives.get_distortion().get_distortion_center().y;
       undistortion_result.undistorted.clear();
@@ -504,6 +496,59 @@ int processFile(
       fs.close();
     }
   return true;
+}
+
+
+int processFile(
+  UndistortionResult & undistortion_result,
+  const std::string & input_filepath,
+  const std::string& output_folder,
+  const int width,
+  const int height,
+  const float canny_high_threshold,
+  const float initial_distortion_parameter,
+  const float final_distortion_parameter,
+  const float distance_point_line_max_hough,
+  const float angle_point_orientation_max_difference,
+  const std::string& tmodel,
+  const std::string& s_opt_c,
+  const bool write_intermediates,
+  const bool write_output,
+  const int max_lines,
+  const float angle_resolution,
+  const float distance_resolution,
+  const float distortion_parameter_resolution
+){
+  cout << "Processing file: " << input_filepath << endl;
+  // Reading the input image
+  const std::string input_filename = get_filename(input_filepath);
+  std::string input_basename, input_extension;
+  split_filename(input_filename, input_basename, input_extension);
+  ami::image<unsigned char> input(input_filepath);
+
+  // Process the image
+  bool res = processImage(
+    undistortion_result,
+    input,
+    output_folder,
+    width,
+    height,
+    canny_high_threshold,
+    initial_distortion_parameter,
+    final_distortion_parameter,
+    distance_point_line_max_hough,
+    angle_point_orientation_max_difference,
+    tmodel,
+    s_opt_c,
+    write_intermediates,
+    write_output,
+    max_lines,
+    angle_resolution,
+    distance_resolution,
+    distortion_parameter_resolution,
+    input_basename
+  );
+  return res;
 }
 
 

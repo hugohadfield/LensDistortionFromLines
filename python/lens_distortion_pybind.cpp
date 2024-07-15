@@ -11,6 +11,51 @@ namespace py = pybind11;
 
 const double DEFAULT_OPENCV_FOCAL_LENGTH = 1000.0;
 
+int processImageFromBytes(
+  lens_distortion::UndistortionResult & undistortion_result,
+  std::vector<unsigned char> input_image_bytes,
+  const std::string& output_folder,
+  const int width,
+  const int height,
+  const float canny_high_threshold,
+  const float initial_distortion_parameter,
+  const float final_distortion_parameter,
+  const float distance_point_line_max_hough,
+  const float angle_point_orientation_max_difference,
+  const std::string& tmodel,
+  const std::string& s_opt_c,
+  const bool write_intermediates,
+  const bool write_output,
+  const int max_lines,
+  const float angle_resolution,
+  const float distance_resolution,
+  const float distortion_parameter_resolution
+){
+
+  ami::image<unsigned char> input_image = lens_distortion::imageFromArray(input_image_bytes, width, height, 3);
+    return processImage(
+        undistortion_result,
+        input_image,
+        output_folder,
+        width,
+        height,
+        canny_high_threshold,
+        initial_distortion_parameter,
+        final_distortion_parameter,
+        distance_point_line_max_hough,
+        angle_point_orientation_max_difference,
+        tmodel,
+        s_opt_c,
+        write_intermediates,
+        write_output,
+        max_lines,
+        angle_resolution,
+        distance_resolution,
+        distortion_parameter_resolution,
+        "image"
+    );
+}
+
 
 /// \brief This function runs the lens distortion correction algorithm.
 int undistortDivisionModel(
@@ -24,33 +69,28 @@ int undistortDivisionModel(
     int h,
     const int image_amplification_factor
 ){
-
+    std::cout << "Running undistortDivisionModel" << std::endl;
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-
     ami::image<unsigned char> input_image = lens_distortion::imageFromArray(input_image_bytes, w, h, 3);    
     lens_distortion_model d_model;
     d_model.set_type(DIVISION);
     std::vector<double> d = {1.0, d1, d2};
     d_model.set_d(d);
     d_model.set_distortion_center({cx, cy});
-
     std::chrono::steady_clock::time_point after_setp = std::chrono::steady_clock::now();
     std::cout << "Time to unpack and set parameters: " << std::chrono::duration_cast<std::chrono::milliseconds>(after_setp - begin).count() << " ms" << std::endl;
-
     const ami::image<unsigned char> undistorted = undistort_quotient_image_inverse(
         input_image,
         d_model,
         image_amplification_factor
     );
-
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::cout << "Time to undistort after params: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - after_setp).count() << " ms" << std::endl;
-
     result.success = true;
     result.tmodel = "division";
     result.opt_c = false;
-    result.k1 = d1;
-    result.k2 = d2;
+    result.d1 = d1;
+    result.d2 = d2;
     result.cx = cx;
     result.cy = cy;
     result.width = undistorted.width();
@@ -122,8 +162,8 @@ PYBIND11_MODULE(lens_distortion_pybind, m) {
         .def_readonly("success", &lens_distortion::UndistortionResult::success)
         .def_readonly("tmodel", &lens_distortion::UndistortionResult::tmodel)
         .def_readonly("opt_c", &lens_distortion::UndistortionResult::opt_c)
-        .def_readonly("k1", &lens_distortion::UndistortionResult::k1)
-        .def_readonly("k2", &lens_distortion::UndistortionResult::k2)
+        .def_readonly("d1", &lens_distortion::UndistortionResult::d1)
+        .def_readonly("d2", &lens_distortion::UndistortionResult::d2)
         .def_readonly("cx", &lens_distortion::UndistortionResult::cx)
         .def_readonly("cy", &lens_distortion::UndistortionResult::cy)
         .def_readonly("width", &lens_distortion::UndistortionResult::width)
@@ -178,5 +218,26 @@ PYBIND11_MODULE(lens_distortion_pybind, m) {
         py::arg("w"),
         py::arg("h"),
         py::arg("image_amplification_factor") = 3
+    );
+
+    m.def("processImageFromBytes", &processImageFromBytes, "A function that processes an image from bytes",
+        py::arg("undistortion_result"),
+        py::arg("input_image_bytes"),
+        py::arg("output_folder"),
+        py::arg("width"),
+        py::arg("height"),
+        py::arg("canny_high_threshold"),
+        py::arg("initial_distortion_parameter"),
+        py::arg("final_distortion_parameter"),
+        py::arg("distance_point_line_max_hough"),
+        py::arg("angle_point_orientation_max_difference"),
+        py::arg("tmodel"),
+        py::arg("s_opt_c"),
+        py::arg("write_intermediates") = false,
+        py::arg("write_output") = false,
+        py::arg("max_lines") = lens_distortion::default_max_lines,
+        py::arg("angle_resolution") = lens_distortion::default_angle_resolution,
+        py::arg("distance_resolution") = lens_distortion::default_distance_resolution,
+        py::arg("distortion_parameter_resolution") = lens_distortion::default_distortion_parameter_resolution
     );
 }

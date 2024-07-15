@@ -1,9 +1,12 @@
+from typing import Tuple, Dict, Any
+
 import numpy as np
 
 
 from lens_distortion_pybind import (
     UndistortionResult, 
     processFile, 
+    processImageFromBytes,
     opencv_fisheye_polynomial, 
     division_model_polynomial,
     undistortDivisionModel as undistortDivisionModelCpp,
@@ -43,10 +46,73 @@ def unpack_image_from_list_numpy(image_bytes: np.ndarray, width_: int, height_: 
     return output_image
 
 
-def process_image(
-        test_image: str, width: int, height: int, output_dir: str = "",
-        write_intermediates: bool = False, write_output: bool = False
-    ):
+def process_image_numpy(
+    rgb_numpy: np.ndarray,
+    output_dir: str = "", 
+    write_intermediates: bool = False, 
+    write_output: bool = False
+) -> Tuple[np.ndarray, Dict[str, Any]]:
+    """
+    This function processes an image in numpy format.
+    """
+    if len(output_dir) == 0:
+        output_folder = './'
+    else:
+        output_folder = str(output_dir) + '/'
+    canny_high_threshold = 0.8
+    initial_distortion_parameter = 0.0
+    final_distortion_parameter = 8.0
+    distance_point_line_max_hough = 10.0
+    angle_point_orientation_max_difference = 10.0
+    max_lines = 200
+    tmodel = 'div'
+    s_opt_c = 'True'
+
+    height, width, _ = rgb_numpy.shape
+
+    image_flat = pack_rgb_for_cpp(rgb_numpy)
+    res = UndistortionResult()
+    processImageFromBytes(
+        res, 
+        image_flat, 
+        str(output_folder), 
+        width, 
+        height, 
+        canny_high_threshold,
+        initial_distortion_parameter,
+        final_distortion_parameter,
+        distance_point_line_max_hough,
+        angle_point_orientation_max_difference,
+        tmodel,
+        s_opt_c,
+        write_intermediates,
+        write_output,
+        max_lines
+    )
+    res_dict = {
+        'success': res.success,
+        'tmodel': res.tmodel,
+        'opt_c': res.opt_c,
+        'd1': res.d1,
+        'd2': res.d2,
+        'cx': res.cx,
+        'cy': res.cy,
+        'width': res.width,
+        'height': res.height
+    }
+    undistorted_data = np.array(res.undistorted(), dtype=np.uint8)
+    undistorted_numpy_array = unpack_image_from_list_numpy(undistorted_data, res.width, res.height)
+    return undistorted_numpy_array, res_dict
+
+
+def process_image_file(
+    test_image: str, 
+    width: int, 
+    height: int, 
+    output_dir: str = "",
+    write_intermediates: bool = False, 
+    write_output: bool = False
+):
     """
     This is the main function that calls the C++ code to undistort an image.
     """
@@ -85,8 +151,8 @@ def process_image(
         'success': res.success,
         'tmodel': res.tmodel,
         'opt_c': res.opt_c,
-        'k1': res.k1,
-        'k2': res.k2,
+        'd1': res.d1,
+        'd2': res.d2,
         'cx': res.cx,
         'cy': res.cy,
         'width': res.width,
@@ -146,12 +212,15 @@ if __name__ == "__main__":
     test_image = "../example/rubiks.png"
     # Load the image and get its dimensions
     image = cv2.imread(test_image)
+    _, res = process_image_numpy(image)
+    print(res)
+
     height, width, _ = image.shape
     output_dir = "output"
-    d1 = -1.7416020481992757e-06
-    d2 = -5.605012272338025e-12
-    cx = 420.6673650644664
-    cy = 342.4078469612204
+    d1 = res['d1']
+    d2 = res['d2']
+    cx = res['cx']
+    cy = res['cy']
 
     plt.subplot(2, 2, 1)
     plt.imshow(image)
@@ -167,7 +236,6 @@ if __name__ == "__main__":
     undistorted_image2 = undistort_division_model(image2, d3, d4, cx2, cy2)
     plt.imshow(undistorted_image2)
 
-
     d5, d6 = scale_distortion_coefs(d1, d2, 0.5)
     cx_05, cy_05 = int(cx/2.0), int(cy/2.0)
     # Half image size in opencv
@@ -175,7 +243,6 @@ if __name__ == "__main__":
     undistorted_image05 = undistort_division_model(image05, d5, d6, cx_05, cy_05)
     plt.subplot(2, 2, 4)
     plt.imshow(undistorted_image05)
-
 
     plt.show()
 

@@ -20,8 +20,8 @@ class UndistortionResult{
     // Algorithm parameters and results
     std::string tmodel;
     bool opt_c = false;
-    double k1 = 0.0;
-    double k2 = 0.0;
+    double d1 = 0.0;
+    double d2 = 0.0;
     double cx = 0.0;
     double cy = 0.0;
 
@@ -61,6 +61,29 @@ int processFile(
   const float angle_resolution,
   const float distance_resolution,
   const float distortion_parameter_resolution
+);
+
+
+int processImage(
+  UndistortionResult & undistortion_result,
+  ami::image<unsigned char>& input_image,
+  const std::string& output_folder,
+  const int width,
+  const int height,
+  const float canny_high_threshold,
+  const float initial_distortion_parameter,
+  const float final_distortion_parameter,
+  const float distance_point_line_max_hough,
+  const float angle_point_orientation_max_difference,
+  const std::string& tmodel,
+  const std::string& s_opt_c,
+  const bool write_intermediates,
+  const bool write_output,
+  const int max_lines,
+  const float angle_resolution,
+  const float distance_resolution,
+  const float distortion_parameter_resolution,
+  const std::string& image_basename
 );
 
 /// \brief This runs the algorithm, the main function will be a wrapper for this one
