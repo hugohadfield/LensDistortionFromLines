@@ -112,8 +112,21 @@ So our proceedure can be:
 This is exactly what is done in the utility functions in `python/match_opencv_fisheye.py`.
 
 ## Results
-Lets run the algorithm on a few images!
+Lets run the algorithm on a few images! There are example input images in the `example` directory. And the results of the algorithm are in the `output` directory. 
 
+Distorted:
+![building.png](./example/building.png)
+Undistorted with division model:
+![building_undistorted.png](./output/building/division_model.png)
+Undistorted with OpenCV:
+![building_undistorted_opencv.png](./output/building/opencv_model.png)
+
+Distorted:
+![rubiks.png](./example/rubiks/original.png)
+Undistorted with division model:
+![rubiks_undistorted.png](./output/rubiks/division_model.png)
+Undistorted with OpenCV:
+![rubiks_undistorted_opencv.png](./output/rubiks/opencv_model.png)
 
 
 ___
