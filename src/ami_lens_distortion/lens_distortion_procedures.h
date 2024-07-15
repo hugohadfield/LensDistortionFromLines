@@ -283,7 +283,7 @@ template <class  U>
 ami::image<U> undistort_quotient_image_inverse(
 ami::image<U> input_image,
 lens_distortion_model &d,
-const double image_amplification_factor
+const int image_amplification_factor
 )
 {
   int width0=input_image.width();
@@ -302,6 +302,7 @@ const double image_amplification_factor
   point2d<double> corner(0,0);
   //  cout << "Width " << width0 << " Height " << height0 << endl;
   //  cout << "LDM centre " << ldm_centre.x << " " << ldm_centre.y << endl;
+
   double max_distance_corner= (ldm_centre-corner).norm();
   corner.y=height0;
   double distance_corner=(ldm_centre-corner).norm();
@@ -400,7 +401,7 @@ const double image_amplification_factor
   // WE FIT IMAGE SCALING
   double scale;
   ami::point2d<double> t(1.0, 1.0);
-  if(image_amplification_factor==1.)
+  if(image_amplification_factor==1)
   { 
     //ALL IMAGE IS INCLUDED IN CORRECTED ONE
     ami::point2d<double> temp2=d.evaluation_quotient( ami::point2d<double>((double) width,(double) height));
@@ -426,7 +427,7 @@ const double image_amplification_factor
     t.x=(scale*ldm_centre.x-ldm_centre.x);
     t.y=(scale*ldm_centre.y-ldm_centre.y);
   }
-  else if(image_amplification_factor == 2.)
+  else if(image_amplification_factor == 2)
   { 
     //IMAGE IS FITTED TO KEEP WIDTH
     ami::point2d<double> temp2=d.evaluation_quotient( ami::point2d<double>((double) width,ldm_centre.y));
@@ -439,7 +440,7 @@ const double image_amplification_factor
     t.x=(scale*ldm_centre.x-ldm_centre.x);
     t.y=(scale*ldm_centre.y-ldm_centre.y);
   }
-  else if(image_amplification_factor == 3.)
+  else if(image_amplification_factor == 3)
   { 
     //IMAGE IS FITTED TO KEEP HEIGHT
     ami::point2d<double> temp2=d.evaluation_quotient( ami::point2d<double>(ldm_centre.x,(double) height));
@@ -452,7 +453,10 @@ const double image_amplification_factor
     t.x=(scale*ldm_centre.x-ldm_centre.x);
     t.y=(scale*ldm_centre.y-ldm_centre.y);
   }
-
+  #ifdef _OPENMP
+   cout << "Using OpenMP" << endl;
+	#endif
+   
 
   int nc,n2,i,j;
 	#ifdef _OPENMP

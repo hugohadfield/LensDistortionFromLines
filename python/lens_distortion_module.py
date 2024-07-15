@@ -5,7 +5,8 @@ from lens_distortion_pybind import (
     UndistortionResult, 
     processFile, 
     opencv_fisheye_polynomial, 
-    division_model_polynomial
+    division_model_polynomial,
+    undistortDivisionModel as undistortDivisionModelCpp,
 )
 
 
@@ -95,3 +96,110 @@ def process_image(
     undistorted_numpy_array = unpack_image_from_list_numpy(undistorted_data, res.width, res.height)
     return undistorted_numpy_array, res_dict
 
+
+def pack_rgb_for_cpp(image_rgb: np.ndarray):
+    """
+    This packs an rgb image into a flat array for the C++ code, in the format it expects.
+    """
+    image_rgb_flip = image_rgb[::-1, :, :]
+    reshaped_image = np.swapaxes(image_rgb_flip, 0, 2)
+    reshaped_image = np.swapaxes(reshaped_image, 1, 2)
+    image_bytes = np.ascontiguousarray(reshaped_image.flatten(), dtype=np.uint8)
+    return image_bytes
+
+
+def undistort_division_model(image_rgb: np.ndarray, d1: float, d2: float, cx: int, cy: int):
+    """
+    This function calls the C++ code to undistort an image using the division model.
+    """
+    h, w, _ = image_rgb.shape
+    image_flat = pack_rgb_for_cpp(image_rgb)
+
+    undistorted_res = UndistortionResult()
+    undistortDivisionModelCpp(
+        undistorted_res,
+        image_flat, 
+        d1,
+        d2,
+        cx,
+        cy,
+        w,
+        h,
+        2
+    )
+    output = undistorted_res.undistorted()
+    undistorted_data = np.array(output, dtype=np.uint8)
+    undistorted_numpy_array = unpack_image_from_list_numpy(undistorted_data, undistorted_res.width, undistorted_res.height)
+    return undistorted_numpy_array
+
+
+def scale_distortion_coefs(d1: float, d2: float, new_image_scale: float):
+    """
+    This function adjusts the distortion coefficients for a new image scale.
+    """
+    return d1/(new_image_scale**2), d2/(new_image_scale**4)
+
+
+if __name__ == "__main__":
+    import cv2
+    import matplotlib.pyplot as plt
+    test_image = "../example/rubiks.png"
+    # Load the image and get its dimensions
+    image = cv2.imread(test_image)
+    height, width, _ = image.shape
+    output_dir = "output"
+    d1 = -1.7416020481992757e-06
+    d2 = -5.605012272338025e-12
+    cx = 420.6673650644664
+    cy = 342.4078469612204
+
+    plt.subplot(2, 2, 1)
+    plt.imshow(image)
+    undistorted_image = undistort_division_model(image, d1, d2, cx, cy)
+    plt.subplot(2, 2, 2)
+    plt.imshow(undistorted_image)
+
+    plt.subplot(2, 2, 3)
+    d3, d4 = scale_distortion_coefs(d1, d2, 2.0)
+    cx2, cy2 = int(cx*2), int(cy*2)
+    # Double image size in opencv
+    image2 = cv2.resize(image, (width*2, height*2))
+    undistorted_image2 = undistort_division_model(image2, d3, d4, cx2, cy2)
+    plt.imshow(undistorted_image2)
+
+
+    d5, d6 = scale_distortion_coefs(d1, d2, 0.5)
+    cx_05, cy_05 = int(cx/2.0), int(cy/2.0)
+    # Half image size in opencv
+    image05 = cv2.resize(image, (int(width/2.0), int(height/2.0)))
+    undistorted_image05 = undistort_division_model(image05, d5, d6, cx_05, cy_05)
+    plt.subplot(2, 2, 4)
+    plt.imshow(undistorted_image05)
+
+
+    plt.show()
+
+
+    # import cProfile
+    # import pstats
+    import time
+
+    # ncalls = 100
+    # def profile_code():
+    #     # Assuming undistort_division_model, image, d1, d2, cx, cy are defined elsewhere
+    #     for i in range(ncalls):
+    #         undistort_division_model(image, d1, d2, cx, cy)
+
+    # start_time = time.time()
+    # profile_code()
+    # end_time = time.time()
+    # print(f"Time taken: {end_time - start_time}, per call: {(end_time - start_time) / ncalls}")
+
+    # Run the profiler on the profile_code function and store the results in cprofile.prof
+    # cProfile.run('profile_code()', 'cprofile.prof')
+
+    # # Create a Stats object from the profile data
+    # p = pstats.Stats('cprofile.prof')
+
+    # # Strip directories, sort by cumulative time, and print the stats
+    # p.strip_dirs().sort_stats('cumulative').print_stats()

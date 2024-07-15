@@ -34,9 +34,8 @@ class UndistortionResult{
     std::vector<unsigned char> getUndistortedAsArray() const;
 };
 
-void imageFromArray(
-  ami::image<unsigned char>& image_to_fill,
-  const std::vector<unsigned char>& undistorted_array, 
+ami::image<unsigned char> imageFromArray(
+  const std::vector<unsigned char>& data_array, 
   const int width, 
   const int height,
   const int channels

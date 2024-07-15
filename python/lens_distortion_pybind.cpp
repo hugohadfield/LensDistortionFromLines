@@ -3,11 +3,63 @@
 #include <string>
 #include <vector>
 #include <math.h>
+#include <chrono>
+#include "../src/ami_lens_distortion/lens_distortion_procedures.h"
 #include "../src/lens_distortion_program.h"
 
 namespace py = pybind11;
 
 const double DEFAULT_OPENCV_FOCAL_LENGTH = 1000.0;
+
+
+/// \brief This function runs the lens distortion correction algorithm.
+int undistortDivisionModel(
+    lens_distortion::UndistortionResult & result,
+    const std::vector<unsigned char> & input_image_bytes,
+    double d1,
+    double d2,
+    double cx,
+    double cy,
+    int w,
+    int h,
+    const int image_amplification_factor
+){
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
+    ami::image<unsigned char> input_image = lens_distortion::imageFromArray(input_image_bytes, w, h, 3);    
+    lens_distortion_model d_model;
+    d_model.set_type(DIVISION);
+    std::vector<double> d = {1.0, d1, d2};
+    d_model.set_d(d);
+    d_model.set_distortion_center({cx, cy});
+
+    std::chrono::steady_clock::time_point after_setp = std::chrono::steady_clock::now();
+    std::cout << "Time to unpack and set parameters: " << std::chrono::duration_cast<std::chrono::milliseconds>(after_setp - begin).count() << " ms" << std::endl;
+
+    const ami::image<unsigned char> undistorted = undistort_quotient_image_inverse(
+        input_image,
+        d_model,
+        image_amplification_factor
+    );
+
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << "Time to undistort after params: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - after_setp).count() << " ms" << std::endl;
+
+    result.success = true;
+    result.tmodel = "division";
+    result.opt_c = false;
+    result.k1 = d1;
+    result.k2 = d2;
+    result.cx = cx;
+    result.cy = cy;
+    result.width = undistorted.width();
+    result.height = undistorted.height();
+    result.undistorted.clear();
+    result.undistorted = undistorted;
+    return 1;
+}
+
 
 double opencv_fisheye_polynomial(
     double r, 
@@ -114,5 +166,17 @@ PYBIND11_MODULE(lens_distortion_pybind, m) {
         py::arg("r"),
         py::arg("k1"),
         py::arg("k2")
+    );
+
+    m.def("undistortDivisionModel", &undistortDivisionModel, "A function that undistorts an image using the division model",
+        py::arg("result"),
+        py::arg("input_image_bytes"),
+        py::arg("d1"),
+        py::arg("d2"),
+        py::arg("cx"),
+        py::arg("cy"),
+        py::arg("w"),
+        py::arg("h"),
+        py::arg("image_amplification_factor") = 3
     );
 }

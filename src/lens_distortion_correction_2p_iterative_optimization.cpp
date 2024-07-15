@@ -32,31 +32,6 @@ using namespace std;
 
 namespace lens_distortion{
 
-/*
-This is a snippet from a function that shows interpolation of an image
-
-  // WE PROCESS IN THE CASE WE DO NOT NEED INTERPOLATION
-  if( width_>width && width_%width==0  && height_>height && height_%height==0 ){
-    int scale_x=width_/width;
-    int scale_y=height_/height;
-    for(int n=0;n<nChannels_;n++){
-      int n0=n*width_*height_;
-      int n2=n*width*height;
-			#ifdef _OPENMP
-      #pragma omp parallel for shared(image2,n,n0,n2,scale_x,scale_y)
-			#endif
-      for(int i=0;i<height;i++){
-        int m0=n0+scale_y*i*width_;
-        int m2=n2+i*width;
-        for(int j=0;j<width;j++){
-          image2[m2+j]=image_[m0+scale_x*j];
-        }
-      }
-    }
-    return image2;
-  }
-
-*/
 std::vector<unsigned char> UndistortionResult::getUndistortedAsArray() const {
   std::vector<unsigned char> undistorted_array;
   undistorted_array.reserve(undistorted.size());
@@ -65,16 +40,17 @@ std::vector<unsigned char> UndistortionResult::getUndistortedAsArray() const {
   return undistorted_array;
 }
 
-void imageFromArray(
-  ami::image<unsigned char>& image_to_fill,
-  const std::vector<unsigned char>& undistorted_array, 
+ami::image<unsigned char> imageFromArray(
+  const std::vector<unsigned char>& data_array, 
   const int width, 
   const int height,
   const int channels
 ) {
-  image_to_fill = ami::image<unsigned char>(width, height, channels, 0);
-  for(int i = 0; i < image_to_fill.size(); i++)
-    image_to_fill[i] = undistorted_array[i];
+  ami::image<unsigned char> image_out = ami::image<unsigned char>(width, height, channels);
+  for(std::size_t i = 0; i < image_out.size(); i++){
+    image_out[i] = data_array[i];
+  }
+  return image_out;
 } 
 
 //------------------------------------------------------------------------------
@@ -438,7 +414,7 @@ int processFile(
         undistorted = undistort_quotient_image_inverse(
           inputImage, // input image
           i_primitives.get_distortion(), // lens distortion model
-          3.0 // integer index to fix the way the corrected image is scaled to fit input size image
+          3 // integer index to fix the way the corrected image is scaled to fit input size image
         );
 
         if (write_output){

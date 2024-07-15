@@ -1,12 +1,11 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+# Ensure we use modern CMake features
+cmake_minimum_required(VERSION 3.12)
+
 PROJECT(cameraLensCalibration C CXX)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set (CMAKE_CXX_FLAGS "--std=gnu++11 ${CMAKE_CXX_FLAGS}")
 endif ()
-
-# Ensure we use modern CMake features
-cmake_minimum_required(VERSION 3.12)
 
 FIND_PACKAGE(PNG REQUIRED)
 
@@ -22,9 +21,21 @@ file(
 )
 
 add_executable(cameraLensCalibration ${files_header} ${files_cpp})
-target_link_libraries(cameraLensCalibration
-  ${PNG_LIBRARIES}
-)
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(cameraLensCalibration
+    ${PNG_LIBRARIES} OpenMP::OpenMP_CXX
+  )
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+  endif()
+else()
+  target_link_libraries(cameraLensCalibration
+    ${PNG_LIBRARIES}
+  )
+endif()
+
 target_include_directories(cameraLensCalibration PUBLIC
   ${PNG_INCLUDE_DIRS}
 )
