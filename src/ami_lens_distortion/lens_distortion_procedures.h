@@ -453,10 +453,6 @@ const int image_amplification_factor
     t.x=(scale*ldm_centre.x-ldm_centre.x);
     t.y=(scale*ldm_centre.y-ldm_centre.y);
   }
-  #ifdef _OPENMP
-   cout << "Using OpenMP" << endl;
-	#endif
-   
 
   int nc,n2,i,j;
 	#ifdef _OPENMP

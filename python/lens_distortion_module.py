@@ -46,8 +46,8 @@ def unpack_image_from_list_numpy(image_bytes: np.ndarray, width_: int, height_: 
     return output_image
 
 
-def process_image_numpy(
-    rgb_numpy: np.ndarray,
+def process_image_bgr_numpy(
+    bgr_numpy: np.ndarray,
     output_dir: str = "", 
     write_intermediates: bool = False, 
     write_output: bool = False,
@@ -68,9 +68,9 @@ def process_image_numpy(
     tmodel = 'div'
     s_opt_c = 'True'
 
-    height, width, _ = rgb_numpy.shape
-
-    image_flat = pack_rgb_for_cpp(rgb_numpy)
+    height, width, _ = bgr_numpy.shape
+    # Now pack it
+    image_flat = pack_bgr_for_cpp(bgr_numpy)
     res = UndistortionResult()
     processImageFromBytes(
         res, 
@@ -163,23 +163,23 @@ def process_image_file(
     return undistorted_numpy_array, res_dict
 
 
-def pack_rgb_for_cpp(image_rgb: np.ndarray):
+def pack_bgr_for_cpp(image_bgr: np.ndarray):
     """
-    This packs an rgb image into a flat array for the C++ code, in the format it expects.
+    This packs an bgr image into a flat array for the C++ code, in the format it expects.
     """
-    image_rgb_flip = image_rgb[::-1, :, :]
-    reshaped_image = np.swapaxes(image_rgb_flip, 0, 2)
+    image_bgr_flip = image_bgr[::-1, :, :]
+    reshaped_image = np.swapaxes(image_bgr_flip, 0, 2)
     reshaped_image = np.swapaxes(reshaped_image, 1, 2)
     image_bytes = np.ascontiguousarray(reshaped_image.flatten(), dtype=np.uint8)
     return image_bytes
 
 
-def undistort_division_model(image_rgb: np.ndarray, d1: float, d2: float, cx: int, cy: int):
+def undistort_division_model(image_bgr: np.ndarray, d1: float, d2: float, cx: int, cy: int):
     """
     This function calls the C++ code to undistort an image using the division model.
     """
-    h, w, _ = image_rgb.shape
-    image_flat = pack_rgb_for_cpp(image_rgb)
+    h, w, _ = image_bgr.shape
+    image_flat = pack_bgr_for_cpp(image_bgr)
 
     undistorted_res = UndistortionResult()
     undistortDivisionModelCpp(
@@ -215,13 +215,20 @@ if __name__ == "__main__":
     # Load the image 
     image = cv2.imread(test_image)
     height, width, _ = image.shape
+    # Convert the image to BGR
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
     # Process the image to get the distortion coefficients
-    image_out, res = process_image_numpy(
+    # image_out, res = process_image_file(
+    #     test_image,
+    #     width,
+    #     height,
+    image_out, res = process_image_bgr_numpy(
         image,
         output_dir="../output/",
         write_intermediates=True,
         write_output=True,
+        distance_point_line_max_hough=10.0,
     )
     print(res)
     plt.figure()
@@ -237,9 +244,11 @@ if __name__ == "__main__":
 
     plt.subplot(2, 2, 1)
     plt.imshow(image)
+    plt.title("Original image")
     undistorted_image = undistort_division_model(image, d1, d2, cx, cy)
     plt.subplot(2, 2, 2)
     plt.imshow(undistorted_image)
+    plt.title("Undistorted image")
 
     plt.subplot(2, 2, 3)
     d3, d4 = scale_distortion_coefs(d1, d2, 2.0)
@@ -248,6 +257,7 @@ if __name__ == "__main__":
     image2 = cv2.resize(image, (width*2, height*2))
     undistorted_image2 = undistort_division_model(image2, d3, d4, cx2, cy2)
     plt.imshow(undistorted_image2)
+    plt.title("Undistorted image x2")
 
     d5, d6 = scale_distortion_coefs(d1, d2, 0.5)
     cx_05, cy_05 = int(cx/2.0), int(cy/2.0)
@@ -256,5 +266,6 @@ if __name__ == "__main__":
     undistorted_image05 = undistort_division_model(image05, d5, d6, cx_05, cy_05)
     plt.subplot(2, 2, 4)
     plt.imshow(undistorted_image05)
+    plt.title("Undistorted image x0.5")
 
     plt.show()

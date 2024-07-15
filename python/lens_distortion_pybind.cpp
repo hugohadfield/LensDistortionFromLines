@@ -87,7 +87,7 @@ int undistortDivisionModel(
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
     std::cout << "Time to undistort after params: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - after_setp).count() << " ms" << std::endl;
     result.success = true;
-    result.tmodel = "division";
+    result.tmodel = "div";
     result.opt_c = false;
     result.d1 = d1;
     result.d2 = d2;

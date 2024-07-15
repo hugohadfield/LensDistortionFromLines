@@ -66,7 +66,7 @@ int processFile(
 
 int processImage(
   UndistortionResult & undistortion_result,
-  ami::image<unsigned char>& input_image,
+  const ami::image<unsigned char>& input_image,
   const std::string& output_folder,
   const int width,
   const int height,
@@ -83,7 +83,7 @@ int processImage(
   const float angle_resolution,
   const float distance_resolution,
   const float distortion_parameter_resolution,
-  const std::string& image_basename
+  const std::string & input_basename
 );
 
 /// \brief This runs the algorithm, the main function will be a wrapper for this one

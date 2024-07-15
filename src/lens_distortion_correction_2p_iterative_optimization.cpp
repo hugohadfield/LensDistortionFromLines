@@ -269,7 +269,7 @@ void read_directory(std::vector<std::string>& out_filepaths, const std::string& 
 
 int processImage(
   UndistortionResult & undistortion_result,
-  ami::image<unsigned char>& input_image,
+  const ami::image<unsigned char>& input_image,
   const std::string& output_folder,
   const int width,
   const int height,
@@ -307,8 +307,9 @@ int processImage(
     //Converting the input image to gray level
     auto input(input_image);
     ami::image<unsigned char> gray(width,height,1,0); //gray-level image to call canny
-    for(int i=0; i<size_; i++)
+    for(int i=0; i<size_; i++){
       gray[i] = 0.3 * input[i] + 0.59 * input[i+size_] + 0.11 * input[i+size_*2];
+    }
     input.clear();
 
     //ALGORITHM STAGE 1 : Detecting edges with Canny   

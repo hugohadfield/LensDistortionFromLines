@@ -12,7 +12,7 @@ from pathlib import Path
 
 from lens_distortion_module import (
     process_image_file, 
-    process_image_numpy,
+    process_image_bgr_numpy,
     opencv_fisheye_polynomial as opencv_fisheye_polynomial_pybind,
     division_model_polynomial as division_model_polynomial_pybind
 )
@@ -297,7 +297,8 @@ def test_undistort_checker_board():
     test_image = "../example/checker_board.png"
 
     # Load the image 
-    image = cv2.imread(test_image)
+    image = cv2.imread(test_image, cv2.IMREAD_COLOR)
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
     # Take only a central ROI of NxN pixels
     h_big, w_big, _ = image.shape
@@ -306,7 +307,7 @@ def test_undistort_checker_board():
     image_centre = image[int(h_big/2)-half_size:int(h_big/2)+half_size, int(w_big/2)-half_size:int(w_big/2)+half_size, :]
 
     # Process the central ROI image to get something we can apply to the whole image
-    imout, res = process_image_numpy(image_centre)
+    imout, res = process_image_bgr_numpy(image_centre)
     print(res)
 
     plt.subplot(1, 2, 1)
@@ -413,6 +414,7 @@ def cli(test_image_name, output_dir, write_intermediates, write_output):
     
 
 if __name__ == '__main__':
-    cli()
+    # cli()
     # Example usage: 
     # python match_opencv_fisheye.py --test_image_name ../example/chicago.png --output_dir ../output/ --write_intermediates False --write_output False
+    test_undistort_checker_board()
