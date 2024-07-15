@@ -12,6 +12,7 @@ from pathlib import Path
 
 from lens_distortion_module import (
     process_image_file, 
+    process_image_numpy,
     opencv_fisheye_polynomial as opencv_fisheye_polynomial_pybind,
     division_model_polynomial as division_model_polynomial_pybind
 )
@@ -291,6 +292,60 @@ def side_by_side_images(
     plt.show()
 
 
+def test_undistort_checker_board():
+
+    test_image = "../example/checker_board.png"
+
+    # Load the image 
+    image = cv2.imread(test_image)
+
+    # Take only a central ROI of NxN pixels
+    h_big, w_big, _ = image.shape
+    imsmall_size = 800
+    half_size = int(imsmall_size/2)
+    image_centre = image[int(h_big/2)-half_size:int(h_big/2)+half_size, int(w_big/2)-half_size:int(w_big/2)+half_size, :]
+
+    # Process the central ROI image to get something we can apply to the whole image
+    imout, res = process_image_numpy(image_centre)
+    print(res)
+
+    plt.subplot(1, 2, 1)
+    plt.imshow(image_centre)
+    plt.subplot(1, 2, 2)
+    plt.imshow(imout)
+    plt.show()
+
+    # Set the image centre to the correct place in the whole image
+    # We do not need to scale the distortion coefficients as we are using a crop not a resize
+    cx_new = res['cx'] - half_size + int(w_big/2) 
+    cy_new = res['cy'] - half_size + int(h_big/2) 
+    res['cx'] = cx_new
+    res['cy'] = cy_new
+    print(res)
+
+    # Set up parameters for the division model undistortion
+    d1 = res['d1']
+    d2 = res['d2']
+    cx = res['cx']
+    cy = res['cy']
+
+    plt.subplot(1, 2, 1)
+    plt.imshow(image)
+    img_opencv_direct, _, _ = match_and_undistort_with_opencv(
+        image,
+        d1,
+        d2,
+        cx,
+        cy,
+        max_r=500.0,
+        mode='direct'
+    )
+    plt.subplot(1, 2, 2)
+    plt.imshow(img_opencv_direct)
+    plt.show()
+
+
+
 @click.command()
 @click.option('--test_image_name', type=str, default='../example/chicago.png')
 @click.option('--output_dir', type=str, default='../output/')
@@ -358,6 +413,7 @@ def cli(test_image_name, output_dir, write_intermediates, write_output):
     
 
 if __name__ == '__main__':
-    cli()
+    # cli()
     # Example usage: 
     # python match_opencv_fisheye.py --test_image_name ../example/chicago.png --output_dir ../output/ --write_intermediates False --write_output False
+    test_undistort_checker_board()

@@ -209,13 +209,18 @@ def scale_distortion_coefs(d1: float, d2: float, new_image_scale: float):
 if __name__ == "__main__":
     import cv2
     import matplotlib.pyplot as plt
+
     test_image = "../example/rubiks.png"
-    # Load the image and get its dimensions
+
+    # Load the image 
     image = cv2.imread(test_image)
+    height, width, _ = image.shape
+
+    # Process the image to get the distortion coefficients
     _, res = process_image_numpy(image)
     print(res)
 
-    height, width, _ = image.shape
+    # Set up parameters for the division model undistortion
     output_dir = "output"
     d1 = res['d1']
     d2 = res['d2']
@@ -245,28 +250,3 @@ if __name__ == "__main__":
     plt.imshow(undistorted_image05)
 
     plt.show()
-
-
-    # import cProfile
-    # import pstats
-    import time
-
-    # ncalls = 100
-    # def profile_code():
-    #     # Assuming undistort_division_model, image, d1, d2, cx, cy are defined elsewhere
-    #     for i in range(ncalls):
-    #         undistort_division_model(image, d1, d2, cx, cy)
-
-    # start_time = time.time()
-    # profile_code()
-    # end_time = time.time()
-    # print(f"Time taken: {end_time - start_time}, per call: {(end_time - start_time) / ncalls}")
-
-    # Run the profiler on the profile_code function and store the results in cprofile.prof
-    # cProfile.run('profile_code()', 'cprofile.prof')
-
-    # # Create a Stats object from the profile data
-    # p = pstats.Stats('cprofile.prof')
-
-    # # Strip directories, sort by cumulative time, and print the stats
-    # p.strip_dirs().sort_stats('cumulative').print_stats()
