@@ -1,0 +1,15 @@
+Selected parameters:
+	 High Canny's threshold: 0.8
+	 Initial normalized distortion parameter: 0
+	 Final normalized distortion parameter: 3
+	 Maximum distance between points and line: 10
+	 Maximum difference between edge point and line orientations: 10
+	 Model applied: div
+	 Center optimization: True
+-------------------------
+Results: 
+	 Number of detected lines: 72
+	 Total amount of line points: 6444
+	 Distortion center: (1000, 750)
+	 Estimated normalized distortion parameters: p1 = 1.2 p2 = 0.157895
+	 Estimated unnormalized distortion parameters: k1 = -3.49091e-07 k2 = 0

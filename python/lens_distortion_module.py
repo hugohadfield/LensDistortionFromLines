@@ -174,7 +174,8 @@ def pack_bgr_for_cpp(image_bgr: np.ndarray):
     return image_bytes
 
 
-def undistort_division_model(image_bgr: np.ndarray, d1: float, d2: float, cx: int, cy: int):
+def undistort_division_model(image_bgr: np.ndarray, d1: float, d2: float, cx: int, cy: int,
+                             mode: int = 3):
     """
     This function calls the C++ code to undistort an image using the division model.
     """
@@ -191,7 +192,7 @@ def undistort_division_model(image_bgr: np.ndarray, d1: float, d2: float, cx: in
         cy,
         w,
         h,
-        3
+        mode
     )
     output = undistorted_res.undistorted()
     undistorted_data = np.array(output, dtype=np.uint8)
@@ -210,24 +211,20 @@ if __name__ == "__main__":
     import cv2
     import matplotlib.pyplot as plt
 
-    test_image = "../example/chicago.png"
+    test_image = "../example/rubiks.png"
 
     # Load the image 
     image = cv2.imread(test_image)
     height, width, _ = image.shape
+
     # Convert the image to BGR
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-    # Process the image to get the distortion coefficients
-    # image_out, res = process_image_file(
-    #     test_image,
-    #     width,
-    #     height,
     image_out, res = process_image_bgr_numpy(
         image,
         output_dir="../output/",
-        write_intermediates=True,
-        write_output=True,
+        write_intermediates=False,
+        write_output=False,
         distance_point_line_max_hough=10.0,
     )
     print(res)
@@ -245,7 +242,7 @@ if __name__ == "__main__":
     plt.subplot(2, 2, 1)
     plt.imshow(image)
     plt.title("Original image")
-    undistorted_image = undistort_division_model(image, d1, d2, cx, cy)
+    undistorted_image = undistort_division_model(image, d1, d2, cx, cy, 2)
     plt.subplot(2, 2, 2)
     plt.imshow(undistorted_image)
     plt.title("Undistorted image")
@@ -255,7 +252,7 @@ if __name__ == "__main__":
     cx2, cy2 = int(cx*2), int(cy*2)
     # Double image size in opencv
     image2 = cv2.resize(image, (width*2, height*2))
-    undistorted_image2 = undistort_division_model(image2, d3, d4, cx2, cy2)
+    undistorted_image2 = undistort_division_model(image2, d3, d4, cx2, cy2, 2)
     plt.imshow(undistorted_image2)
     plt.title("Undistorted image x2")
 
@@ -263,7 +260,7 @@ if __name__ == "__main__":
     cx_05, cy_05 = int(cx/2.0), int(cy/2.0)
     # Half image size in opencv
     image05 = cv2.resize(image, (int(width/2.0), int(height/2.0)))
-    undistorted_image05 = undistort_division_model(image05, d5, d6, cx_05, cy_05)
+    undistorted_image05 = undistort_division_model(image05, d5, d6, cx_05, cy_05, 2)
     plt.subplot(2, 2, 4)
     plt.imshow(undistorted_image05)
     plt.title("Undistorted image x0.5")

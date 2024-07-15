@@ -365,7 +365,8 @@ def cli(test_image_name, output_dir, write_intermediates, write_output):
         test_image_name, w, h, 
         str(Path(output_dir).resolve()),
         write_intermediates=write_intermediates, 
-        write_output=write_output
+        write_output=write_output,
+        distance_point_line_max_hough=10.0
     )
     # undistorted_numpy_array from rgb to bgr
     undistorted_numpy_array = cv2.cvtColor(undistorted_numpy_array, cv2.COLOR_RGB2BGR)
@@ -414,7 +415,7 @@ def cli(test_image_name, output_dir, write_intermediates, write_output):
     
 
 if __name__ == '__main__':
-    # cli()
+    cli()
     # Example usage: 
     # python match_opencv_fisheye.py --test_image_name ../example/chicago.png --output_dir ../output/ --write_intermediates False --write_output False
-    test_undistort_checker_board()
+    

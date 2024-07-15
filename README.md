@@ -92,7 +92,7 @@ r_theta = d(r) * r / f
 f * r_theta = d(r) * r
 ```
 
-
+This means we can work through the following equations to find the OpenCV coefficients that would produce the same distortion as the division model coefficients:
 ```
 r_theta = d(r) * r / f
 r = f * s(r_theta) * r_theta
@@ -102,6 +102,18 @@ r * ( s(d(r) * r / f) * d(r) - 1 ) = 0
 s(d(r) * r / f) * d(r) - 1 = 0
 s(d(r) * r / f) = 1 / d(r) 
 ```
+So our proceedure can be:
+1. Generate a set of `r` values from 1 to near the size of our image.
+2. Calculate the `d(r)` values for the division model coefficients.
+3. Calculate `d(r) * r / f` for each `r` value with an assumed `f` value.
+4. Create a cost function that calculates the difference between `s(d(r) * r / f)` and `1 / d(r)` for each `r` value and for a given `k1, k2, k3, k4` parameterisation set of `s`.
+5. Use a minimisation algorithm to find the `k1, k2, k3, k4` parameterisation that minimises the cost function.
+
+This is exactly what is done in the utility functions in `python/match_opencv_fisheye.py`.
+
+## Results
+Lets run the algorithm on a few images!
+
 
 
 ___
