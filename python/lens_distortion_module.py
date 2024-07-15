@@ -50,7 +50,13 @@ def process_image_numpy(
     rgb_numpy: np.ndarray,
     output_dir: str = "", 
     write_intermediates: bool = False, 
-    write_output: bool = False
+    write_output: bool = False,
+    canny_high_threshold: float = 0.8,
+    initial_distortion_parameter: float = 0.0,
+    final_distortion_parameter: float = 3.0,
+    distance_point_line_max_hough: float = 3.0,
+    angle_point_orientation_max_difference: float = 10.0,
+    max_lines: int = 100,
 ) -> Tuple[np.ndarray, Dict[str, Any]]:
     """
     This function processes an image in numpy format.
@@ -59,12 +65,6 @@ def process_image_numpy(
         output_folder = './'
     else:
         output_folder = str(output_dir) + '/'
-    canny_high_threshold = 0.8
-    initial_distortion_parameter = 0.0
-    final_distortion_parameter = 8.0
-    distance_point_line_max_hough = 10.0
-    angle_point_orientation_max_difference = 10.0
-    max_lines = 200
     tmodel = 'div'
     s_opt_c = 'True'
 
@@ -111,7 +111,13 @@ def process_image_file(
     height: int, 
     output_dir: str = "",
     write_intermediates: bool = False, 
-    write_output: bool = False
+    write_output: bool = False,
+    canny_high_threshold: float = 0.8,
+    initial_distortion_parameter: float = 0.0,
+    final_distortion_parameter = 3.0,
+    distance_point_line_max_hough: float = 3.0,
+    angle_point_orientation_max_difference: float = 10.0,
+    max_lines: int = 100,
 ):
     """
     This is the main function that calls the C++ code to undistort an image.
@@ -120,12 +126,6 @@ def process_image_file(
         output_folder = './'
     else:
         output_folder = str(output_dir) + '/'
-    canny_high_threshold = 0.8
-    initial_distortion_parameter = 0.0
-    final_distortion_parameter = 8.0
-    distance_point_line_max_hough = 10.0
-    angle_point_orientation_max_difference = 10.0
-    max_lines = 200
     tmodel = 'div'
     s_opt_c = 'True'
 
@@ -191,7 +191,7 @@ def undistort_division_model(image_rgb: np.ndarray, d1: float, d2: float, cx: in
         cy,
         w,
         h,
-        2
+        3
     )
     output = undistorted_res.undistorted()
     undistorted_data = np.array(output, dtype=np.uint8)
@@ -210,15 +210,23 @@ if __name__ == "__main__":
     import cv2
     import matplotlib.pyplot as plt
 
-    test_image = "../example/rubiks.png"
+    test_image = "../example/chicago.png"
 
     # Load the image 
     image = cv2.imread(test_image)
     height, width, _ = image.shape
 
     # Process the image to get the distortion coefficients
-    _, res = process_image_numpy(image)
+    image_out, res = process_image_numpy(
+        image,
+        output_dir="../output/",
+        write_intermediates=True,
+        write_output=True,
+    )
     print(res)
+    plt.figure()
+    plt.imshow(image_out)
+    plt.show()
 
     # Set up parameters for the division model undistortion
     output_dir = "output"

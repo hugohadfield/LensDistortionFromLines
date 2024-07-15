@@ -413,7 +413,6 @@ def cli(test_image_name, output_dir, write_intermediates, write_output):
     
 
 if __name__ == '__main__':
-    # cli()
+    cli()
     # Example usage: 
     # python match_opencv_fisheye.py --test_image_name ../example/chicago.png --output_dir ../output/ --write_intermediates False --write_output False
-    test_undistort_checker_board()

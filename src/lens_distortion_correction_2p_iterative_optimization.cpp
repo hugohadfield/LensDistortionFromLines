@@ -305,9 +305,11 @@ int processImage(
     ami::subpixel_image_contours contours;
     
     //Converting the input image to gray level
+    auto input(input_image);
     ami::image<unsigned char> gray(width,height,1,0); //gray-level image to call canny
     for(int i=0; i<size_; i++)
-      gray[i] = 0.3 * input_image[i] + 0.59 * input_image[i+size_] + 0.11 * input_image[i+size_*2];
+      gray[i] = 0.3 * input[i] + 0.59 * input[i+size_] + 0.11 * input[i+size_*2];
+    input.clear();
 
     //ALGORITHM STAGE 1 : Detecting edges with Canny   
     ami::image<unsigned char> edges(width, height, 1,0); //image to store edge information
@@ -397,6 +399,7 @@ int processImage(
 
     //ALGORITHM STAGE 4 : Correcting the image distortion using the estimated model
     ami::image<unsigned char> undistorted;
+    auto input_image_for_processing(input_image);
     if(i_primitives.get_distortion().get_d().size() > 0)
     {
       cout << "Correcting the distortion..." << endl;
@@ -404,7 +407,7 @@ int processImage(
       if(i_primitives.get_distortion().get_type() == DIVISION)
       {
         undistorted = undistort_quotient_image_inverse(
-          input_image, // input image
+          input_image_for_processing, // input image
           i_primitives.get_distortion(), // lens distortion model
           3 // integer index to fix the way the corrected image is scaled to fit input size image
         );
@@ -432,7 +435,7 @@ int processImage(
           }
         }
         undistorted = undistort_image_inverse_fast(
-          input_image,
+          input_image_for_processing,
           vs-1,
           a,
           i_primitives.get_distortion().get_distortion_center(),
