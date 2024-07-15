@@ -111,8 +111,16 @@ So our proceedure can be:
 
 This is exactly what is done in the utility functions in `python/match_opencv_fisheye.py`.
 
+## Other functionality
+It is possible to play with multiple types of zoom when directly undistorting with the division model and it is possible to scale parameters of the divison model to operate on different sized images. Here is an example of a slightly zoomed out version of the rubiks cube image:
+![rubiks_compare.png](rubiks_compare.png)
+
 ## Results
-Lets run the algorithm on a few images! There are example input images in the `example` directory. And the results of the algorithm are in the `output` directory. 
+Lets run the algorithm on a few images! There are example input images in the `example` directory. And the results of the algorithm are in the `output` directory. Here is a quick comparison of the results of the division model and the OpenCV model on the building image:
+![building_compare.png](building_compare.png)
+
+
+## Large image results
 
 Distorted:
 ![building.png](./example/building.png)
@@ -122,7 +130,14 @@ Undistorted with OpenCV:
 ![building_undistorted_opencv.png](./output/building/opencv_model.png)
 
 Distorted:
-![rubiks.png](./example/rubiks/original.png)
+![chicago.png](./example/chicago.png)
+Undistorted with division model:
+![chicago_undistorted.png](./output/chicago/division_model.png)
+Undistorted with OpenCV:
+![chicago_undistorted_opencv.png](./output/chicago/opencv_model.png)
+
+Distorted:
+![rubiks.png](./example/rubiks.png)
 Undistorted with division model:
 ![rubiks_undistorted.png](./output/rubiks/division_model.png)
 Undistorted with OpenCV:
