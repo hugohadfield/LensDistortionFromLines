@@ -3,9 +3,8 @@ cmake_minimum_required(VERSION 3.12)
 
 PROJECT(cameraLensCalibration C CXX)
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  set (CMAKE_CXX_FLAGS "--std=gnu++11 ${CMAKE_CXX_FLAGS}")
-endif ()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 FIND_PACKAGE(PNG REQUIRED)
 

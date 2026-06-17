@@ -25,7 +25,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <dirent.h>
+#include <filesystem>
 #include <stdexcept>
 
 using namespace std;
@@ -247,21 +247,25 @@ void split_filename(const std::string& filename, std::string& basename, std::str
 
 void read_directory(std::vector<std::string>& out_filepaths, const std::string& inputFolder)
 {
-  DIR* rep = opendir(inputFolder.c_str());
-  cout << "Reading the directory ..." << endl;
-
-  cout << "DT_REG: " << (int)DT_REG << endl;
-  cout << "DT_LNK: " << (int)DT_LNK << endl;
-  while(struct dirent* ent = readdir(rep))
+  std::cout << "Reading the directory ..." << std::endl;
+  try
   {
-    cout << "ent->d_type: " << (int)ent->d_type << " => " << ent->d_name << endl;
-    // ignore if not a file or a link
-    if(ent->d_type == DT_REG || ent->d_type == DT_LNK)
-      out_filepaths.push_back(inputFolder + "/" + std::string(ent->d_name));
+    for (const auto& entry : std::filesystem::directory_iterator(inputFolder))
+    {
+      if (entry.is_regular_file() || entry.is_symlink())
+      {
+        // Use forward slashes for cross-platform compatibility
+        std::string path_str = entry.path().generic_string();
+        out_filepaths.push_back(path_str);
+      }
+    }
   }
-  closedir(rep);
-  cout << "... finished" << endl;
-  cout << "found " << out_filepaths.size() << " files." << endl;
+  catch (const std::exception& e)
+  {
+    std::cout << "Error reading directory: " << e.what() << std::endl;
+  }
+  std::cout << "... finished" << std::endl;
+  std::cout << "found " << out_filepaths.size() << " files." << std::endl;
 }
 
 

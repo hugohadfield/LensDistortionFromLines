@@ -1,4 +1,4 @@
-﻿
+
 # Python bindings of automatic lens distortion correction
 
 This repository contains Python bindings of the automatic lens distortion correction algorithm implemented in C++ by Miguel Alemán-Flores, Luis Álvarez, Luis Gómez, and Daniel Santana-Cedrés. The original code is available at [IPOL](http://www.ipol.im/pub/pre/130/).
@@ -13,15 +13,30 @@ The following changes have been made to the original code:
 
 ## How to build the python bindings
 
-Use the following commands to build the python bindings:
+### Prerequisites
+1. Ensure you have **CMake** (3.12 or higher) and a C++ compiler installed (e.g., GCC on Linux, Visual Studio on Windows).
+2. Ensure you have **libpng** and **zlib** installed on your system.
+3. Before building, initialize and update the Git submodules to pull in the `pybind11` dependency:
+   ```bash
+   git submodule update --init --recursive
+   ```
 
-```
+### Building on Linux / macOS
+```bash
 cd python
 cmake ..
 make
 ```
 
-This will create a python module called `lens_distortion_pybind` in the `python` directory. You can import this module in your python code and use the functions provided by the C++ code.
+### Building on Windows
+Open PowerShell or Command Prompt, and run:
+```powershell
+cd python
+cmake ..
+cmake --build . --config Release
+```
+
+This will compile and create a python module called `lens_distortion_pybind` (a `.so` file on Linux/macOS, or a `.pyd` shared library on Windows) in the `python` directory. You can import this module in your python code and use the functions provided by the C++ code.
 
 ## How to use the python bindings
 
